@@ -20,7 +20,7 @@ public class FaceRecognizerTest {
     @Test
     public void RecognizeTest() throws IOException {
         FaceRecognizer fr = new FaceRecognizer();
-//        fr.loadNative();
+        fr.loadNative();
 //        Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
 //        InputStream testInput = testContext.getAssets().open("11.png");
 //        Bitmap bitmap = BitmapFactory.decodeStream(testInput);
