@@ -42,6 +42,7 @@ before_script:
   - emulator -avd test -no-skin -no-audio -no-window &
   - android-wait-for-emulator
   - adb devices
+  - adb remount
   - adb push shape_predictor_5_face_landmarks.dat /sdcard/Download
   - adb shell input keyevent 82 &
 
