@@ -36,8 +36,8 @@ before_script:
   - wget https://github.com/opencv/opencv/releases/download/3.4.1/opencv-3.4.1-android-sdk.zip
   - unzip -q opencv-3.4.1-android-sdk.zip
   - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
-  - wget https://github.com/davisking/dlib-models/blob/master/shape_predictor_5_face_landmarks.dat.bz2
-  - bunzip2 -d shape_predictor_5_face_landmarks.dat.bz2
+  - wget https://github.com/davisking/dlib-models/raw/master/shape_predictor_5_face_landmarks.dat.bz2
+  - bzip2 -d shape_predictor_5_face_landmarks.dat.bz2
   - echo no | android create avd --force -n test -t $ANDROID_TARGET --abi $ANDROID_ABI
   - emulator -avd test -no-skin -no-audio -no-window &
   - android-wait-for-emulator
