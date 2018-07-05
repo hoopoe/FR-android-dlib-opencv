@@ -9,8 +9,8 @@ public class FaceRecognizer {
     public void loadNative()
     {
         System.loadLibrary("native-lib");
-        //loadResourcesPart1();
-        //loadResourcesPart2();
+        loadResourcesPart1();
+        loadResourcesPart2();
     }
 
     private native int loadResourcesPart1();

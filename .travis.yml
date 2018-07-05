@@ -38,6 +38,8 @@ before_script:
   - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
   - wget https://github.com/davisking/dlib-models/raw/master/shape_predictor_5_face_landmarks.dat.bz2
   - bzip2 -d shape_predictor_5_face_landmarks.dat.bz2
+  - wget https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2
+  - bzip2 -d dlib_face_recognition_resnet_model_v1.dat.bz2
   - echo no | android create avd --force -n test -t $ANDROID_TARGET --abi $ANDROID_ABI
   - emulator -avd test -no-skin -no-audio -no-window &
   - android-wait-for-emulator
@@ -46,6 +48,7 @@ before_script:
   - adb shell mount -o rw,remount rootfs /
   - adb shell chmod 777 /mnt/sdcard
   - adb push shape_predictor_5_face_landmarks.dat /sdcard/Download
+  - adb push dlib_face_recognition_resnet_model_v1.dat /sdcard/Download
 
 script:
 - cd FaceTracker
