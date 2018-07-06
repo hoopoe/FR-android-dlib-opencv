@@ -197,20 +197,20 @@ Java_dlib_android_FaceRecognizer_recognizeFaces(JNIEnv *env,
         faces.push_back(move(face_chip));
     }
 
-    std::vector<matrix<float, 0, 1>> face_descriptors = net1(faces);
-
-    for (size_t i = 0; i < face_descriptors.size(); ++i)
-    {
-        std::string name = "Unknown";
-        for (auto j : known_faces) {
-            float dist = length(face_descriptors[i] - j.second);
-            if (dist < FACE_RECOGNIZE_THRESH) {
-                name = j.first;
-                break;
-            }
-        }
-        names.push_back(name);
-    }
+//    std::vector<matrix<float, 0, 1>> face_descriptors = net1(faces);
+//
+//    for (size_t i = 0; i < face_descriptors.size(); ++i)
+//    {
+//        std::string name = "Unknown";
+//        for (auto j : known_faces) {
+//            float dist = length(face_descriptors[i] - j.second);
+//            if (dist < FACE_RECOGNIZE_THRESH) {
+//                name = j.first;
+//                break;
+//            }
+//        }
+//        names.push_back(name);
+//    }
 
     AndroidBitmap_unlockPixels(env, bmp);
 
