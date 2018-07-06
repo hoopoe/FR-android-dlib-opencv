@@ -6,13 +6,15 @@ branches:
   - master
 env:
   global:
-    - ANDROID_TARGET=android-23
+    - ANDROID_TARGET=android-21
     - ANDROID_ABI=armeabi-v7a
     
 before_install:
   - mkdir -p $ANDROID_HOME/licenses
   - echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_HOME/licenses/android-sdk-license
   - echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_HOME/licenses/android-sdk-license
+  - adb logcat > logcat.log & 
+
 install:
   - echo y | sdkmanager "ndk-bundle"
   - echo y | sdkmanager "cmake;3.6.4111459"
@@ -23,7 +25,7 @@ android:
     - tools
     - platform-tools
     - build-tools-27.0.3
-    - android-23
+    - ${ANDROID_TARGET}
     - extra-android-m2repository
     - sys-img-${ANDROID_ABI}-${ANDROID_TARGET}
     
@@ -32,17 +34,31 @@ android:
     - android-sdk-license-.+
     - google-gdk-license-.+
 
-before_install:
-  - echo $(ant -version)
-
 before_script:
   - wget https://github.com/opencv/opencv/releases/download/3.4.1/opencv-3.4.1-android-sdk.zip
   - unzip -q opencv-3.4.1-android-sdk.zip
   - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
-  - git clone https://github.com/tensorflow/tensorflow.git
-  - export TF_SRC_ROOT=$(pwd)/tensorflow
+  - wget https://github.com/davisking/dlib-models/raw/master/shape_predictor_5_face_landmarks.dat.bz2
+  - bzip2 -d shape_predictor_5_face_landmarks.dat.bz2
+  - wget https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2
+  - bzip2 -d dlib_face_recognition_resnet_model_v1.dat.bz2
+  - wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml
+  - echo no | android create avd --force -n test -t $ANDROID_TARGET --abi $ANDROID_ABI
+  - emulator -avd test -no-skin -no-audio -no-window &
+  - android-wait-for-emulator
+  - adb shell input keyevent 82 &
+  - adb root
+  - adb shell mount -o rw,remount rootfs /
+  - adb shell chmod 777 /mnt/sdcard
+  - adb push shape_predictor_5_face_landmarks.dat /sdcard/Download
+  - adb push dlib_face_recognition_resnet_model_v1.dat /sdcard/Download
+  - adb push haarcascade_frontalface_default.xml /sdcard/Download
 
 script:
-- cd FaceTracker
-- ./gradlew build
+  - cd FaceTracker
+  - ./gradlew build
+  - adb -e logcat -d | curl --silent -F 'clbin=<-' https://clbin.com;
+  - ./gradlew connectedReleaseAndroidTest
 
+after_failure:
+  - adb -e logcat -d '*:E'
