@@ -57,7 +57,8 @@ before_script:
 script:
   - cd FaceTracker
   - ./gradlew build
+  - adb -e logcat -d | curl --silent -F 'clbin=<-' https://clbin.com;
   - ./gradlew connectedReleaseAndroidTest
 
 after_failure:
-  - cat logcat.log
+  - adb -e logcat -d '*:E'
