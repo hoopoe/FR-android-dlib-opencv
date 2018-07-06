@@ -28,6 +28,6 @@ public class FaceRecognizerTest {
         //Log.i(TAG, String.format("bitmap size: %d", bitmap.getAllocationByteCount()));
         String[] res = fr.recognizeFaces(bitmap);
 
-        assertEquals("1Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown", TextUtils.join(",", res));
+        assertEquals("Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown,Unknown", TextUtils.join(",", res));
     }
 }
