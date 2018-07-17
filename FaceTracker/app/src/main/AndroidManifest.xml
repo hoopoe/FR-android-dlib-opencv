@@ -47,6 +47,18 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="opencv.android.fdt.FdActivity"
+            android:label="OCV-SAMFDT"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboardHidden|orientation"
+            android:theme="@style/Theme.AppCompat.NoActionBar" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+
         <activity
             android:name="org.opencv.android.facetracker.OpenCvActivity"
             android:icon="@drawable/icon"

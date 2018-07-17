@@ -43,6 +43,7 @@ import com.google.android.gms.vision.Tracker;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
 
+import opencv.android.fdt.FdActivity;
 import org.opencv.android.facetracker.OpenCvActivity;
 
 import java.io.IOException;
@@ -236,7 +237,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         mBtnDetect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent myIntent = new Intent(FaceTrackerActivity.this, CameraActivityMain.class);
+                Intent myIntent = new Intent(FaceTrackerActivity.this, FdActivity.class);
                 FaceTrackerActivity.this.startActivity(myIntent);
             }
         });
