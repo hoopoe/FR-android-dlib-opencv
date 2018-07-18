@@ -1,13 +1,17 @@
 package opencv.android.fdt;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 
+import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.samples.vision.face.facetracker.R;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -28,6 +32,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import tensorflow.detector.spc.CameraActivityMain;
+
 /**
  * Created by alorusso on 12/07/18.
  */
@@ -45,6 +51,8 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
     private MenuItem               mItemFace30;
     private MenuItem               mItemFace20;
     private MenuItem               mItemType;
+    private Button                 mBtnSwitch;
+    private Button                 mBtnBack;
 
     private Mat                    mRgba;
     private Mat                    mGray;
@@ -55,8 +63,8 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
     private int                    mDetectorType       = NATIVE_DETECTOR;
     private String[]               mDetectorName;
 
-    private float                  mRelativeFaceSize   = 0.2f;
-    private int                    mAbsoluteFaceSize   = 0;
+    private float                  mRelativeFaceSize   = 0.0002f;
+    private int                    mAbsoluteFaceSize   = 1;
 
     private CameraBridgeViewBase   mOpenCvCameraView;
 
@@ -135,7 +143,34 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.fd_activity_surface_view);
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
+
+        onListenButton();
     }
+
+
+    private void onListenButton() {
+        Log.d(TAG, "called onListenButton");
+        mBtnBack = (Button) findViewById(R.id.btnGMS);
+        mBtnSwitch = (Button) findViewById(R.id.btnTF);
+
+        mBtnBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent myIntent = new Intent(FdActivity.this, FaceTrackerActivity.class);
+                FdActivity.this.startActivity(myIntent);
+            }
+        });
+
+        mBtnSwitch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent myIntent = new Intent(FdActivity.this, CameraActivityMain.class);
+                FdActivity.this.startActivity(myIntent);
+            }
+        });
+    }
+
+
 
     @Override
     public void onPause()
@@ -178,16 +213,12 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
-        if (mAbsoluteFaceSize == 0) {
-            int height = mGray.rows();
-            Log.i(TAG,"height1 = " + height);
-            if (Math.round(height * mRelativeFaceSize) > 0) {
-                mAbsoluteFaceSize = Math.round(height * mRelativeFaceSize);
-                Log.i(TAG,"AbsFaceSize = " + mAbsoluteFaceSize);
-            }
-            Log.i(TAG,"AbsFaceSize SET = " + mAbsoluteFaceSize);
-            mNativeDetector.setMinFaceSize(mAbsoluteFaceSize);
-        }
+        // just to monitor the image size (rotation)
+        int height = mGray.rows();
+        Log.i(TAG,"height1 = " + height);
+
+        mNativeDetector.setMinFaceSize(mAbsoluteFaceSize);
+
 
         MatOfRect faces = new MatOfRect();
 
