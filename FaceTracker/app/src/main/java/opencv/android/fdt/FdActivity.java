@@ -5,9 +5,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 
@@ -51,8 +51,8 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
     private MenuItem               mItemFace30;
     private MenuItem               mItemFace20;
     private MenuItem               mItemType;
-    private Button                 mBtnSwitch;
     private Button                 mBtnBack;
+    private Button                 mBtnSwitch;
 
     private Mat                    mRgba;
     private Mat                    mGray;
@@ -63,8 +63,8 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
     private int                    mDetectorType       = NATIVE_DETECTOR;
     private String[]               mDetectorName;
 
-    private float                  mRelativeFaceSize   = 0.0002f;
-    private int                    mAbsoluteFaceSize   = 1;
+    private float                  mRelativeFaceSize   = 0.2f;
+    private int                    mAbsoluteFaceSize   = 0;
 
     private CameraBridgeViewBase   mOpenCvCameraView;
 
@@ -213,12 +213,16 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
-        // just to monitor the image size (rotation)
-        int height = mGray.rows();
-        Log.i(TAG,"height1 = " + height);
-
-        mNativeDetector.setMinFaceSize(mAbsoluteFaceSize);
-
+        if (mAbsoluteFaceSize == 0) {
+            int height = mGray.rows();
+            Log.i(TAG,"height1 = " + height);
+            if (Math.round(height * mRelativeFaceSize) > 0) {
+                mAbsoluteFaceSize = Math.round(height * mRelativeFaceSize);
+                Log.i(TAG,"AbsFaceSize = " + mAbsoluteFaceSize);
+            }
+            Log.i(TAG,"AbsFaceSize SET = " + mAbsoluteFaceSize);
+            mNativeDetector.setMinFaceSize(mAbsoluteFaceSize);
+        }
 
         MatOfRect faces = new MatOfRect();
 
@@ -229,8 +233,8 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
                         new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
                         */
             long start = System.currentTimeMillis();
-                mJavaDetector.detectMultiScale(mGray, faces, 1.1, 3, 0,
-                        new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
+            mJavaDetector.detectMultiScale(mGray, faces, 1.1, 3, 0,
+                    new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
             long end = System.currentTimeMillis();
             long duration = end -start;
             Log.i(TAG,"FD SAM JAVA Exectime = " + duration/1000.0 + " sec");
@@ -240,7 +244,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         else if ((mDetectorType == NATIVE_DETECTOR) &&  (mNativeDetector) != null) {
 
             long start = System.currentTimeMillis();
-                mNativeDetector.detect(mGray, faces);
+            mNativeDetector.detect(mGray, faces);
             long end = System.currentTimeMillis();
             long duration = end -start;
             Log.i(TAG,"FD SAM Native Exectime = " + duration/1000.0 + " sec");
