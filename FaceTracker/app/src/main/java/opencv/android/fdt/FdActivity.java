@@ -2,6 +2,7 @@ package opencv.android.fdt;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -55,6 +56,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
     private int                    mAbsoluteFaceSize   = 0;
 
     private CameraBridgeViewBase   mOpenCvCameraView;
+    long prev = 0;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -129,6 +131,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         setContentView(R.layout.face_detect_surface_view);
 
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.fd_activity_surface_view);
+        mOpenCvCameraView.enableFpsMeter();
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
     }
@@ -147,7 +150,8 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         super.onResume();
         if (!OpenCVLoader.initDebug()) {
             Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
+            //OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         } else {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
@@ -173,6 +177,12 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
 
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
+
+        long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
+        Log.i(TAG,"framerate = " + 1000.0/(currentime-prev) + " fps");
+        prev = currentime;
+        Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
+        //mOpenCvCameraView.enableFpsMeter();
 
         if (mAbsoluteFaceSize == 0) {
            /* int height = mGray.rows();

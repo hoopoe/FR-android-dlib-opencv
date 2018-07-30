@@ -16,6 +16,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
+import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -32,7 +33,7 @@ import android.widget.RelativeLayout;
 import com.google.android.gms.samples.vision.face.facetracker.R;
 import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.vision.face.Face;
-
+import java.util.List;//mic
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -49,8 +50,28 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     HaarDetector hd = new HaarDetector();
     Button mBtnSwitch;
     int cameraId = -1;
-   
+    long prev = 0;
 
+    //-----------------------
+
+    /** A safe way to get an instance of the Camera object. */
+ /*   public static Camera getCameraInstance(){
+        Camera c = null;
+        try {
+            c = Camera.open(); // attempt to get a Camera instance
+        }
+        catch (Exception e) {
+            // Camera is not available (in use or does not exist)
+            Log.i(TAG, "Camera is not availableMIC (in use or does not exist) ->c:"+c.toString());
+            if (c != null) {
+                c.release();
+                c = Camera.open();
+            }
+        }
+        return c; // returns null if camera is unavailable
+    }*/
+
+    //----------------------
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
@@ -93,9 +114,10 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         super.onCreate(savedInstanceState);
         Log.d(TAG, "called onCreate");
 
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        ////getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);//commented by mic
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        ////getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);//commented by mic
+
 
         setContentView(R.layout.activity_open_cv);
 
@@ -106,22 +128,32 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         */
         // mRelativeLayout = (RelativeLayout)findViewById(R.id.OCVtopLayout);
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.main_surface);
+        /*int w= mOpenCvCameraView.getLayoutParams().width;
+        int h= mOpenCvCameraView.getLayoutParams().height;
+        Log.i(TAG, "Layout_width ->" + w + "Layout_height:" +h);*/
+        mOpenCvCameraView.setMaxFrameSize(1920, 1080);//1080p: 1920x1080
+        mOpenCvCameraView.enableFpsMeter();
+        //------------------------------------------------------
+
+        // Create an instance of Camera
+      /*  mCamera = getCameraInstance();//issue with samsung s3 neo & huawei y52
+                                      //Calling Camera.open() throws an exception if the camera is already in use by another application
+
+        Camera.Parameters params = mCamera.getParameters();
+        List<Camera.Size> sizes = params.getSupportedPreviewSizes();
+        for (int i=0; i<sizes.toArray().length; i++) {
+            Log.i(TAG, "Supported preview size: %i-th item ->" + i + "width:" + sizes.get(i).width +"height"+ sizes.get(i).height);
+        }
+        int width=sizes.get(0).width;
+        int height=sizes.get(0).height;
+        Log.i(TAG, "maxWidth ->"+width+"maxHeight:"+height );
+
+        mOpenCvCameraView.setMaxFrameSize(sizes.get(0).width, sizes.get(0).height);*/
+        //-------------------------------------------------
+
         // what are the following used for?
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
-        //mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
-
-
-        /*
-        int numberOfCameras = Camera.getNumberOfCameras();
-        for (int i = 0; i < numberOfCameras; i++) {
-            CameraInfo info = new CameraInfo();
-            Camera.getCameraInfo(i, info);
-            if (info.facing == CameraInfo.CAMERA_FACING_BACK) {
-                cameraId = i;
-                break;
-            }
-        }*/
 
         onListenButton();
     }
@@ -162,7 +194,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         super.onResume();
         if (!OpenCVLoader.initDebug()) {
             Log.d(TAG, "OpenCV library not found");
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
+            //OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         } else {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
@@ -182,15 +215,21 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
+
+        long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
+        Log.i(TAG,"framerate = " + 1000.0/(currentime-prev) + " fps");
+        prev = currentime;
+        Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
+
         MatOfRect faces = new MatOfRect();
 
         hd.OCvDetect(mRgba, faces);
 
         //mJavaDetector.detectMultiScale(mGray, faces, 1.1, 3, 0,new Size(10,10), new Size());
 
-    /*    Rect[] facesArray = faces.toArray();
-        for (int i = 0; i < facesArray.length; i++)
-            Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), DETECT_BOX_COLOR, 3);*/
+    /*   Rect[] facesArray = faces.toArray();
+         for (int i = 0; i < facesArray.length; i++)
+         Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), DETECT_BOX_COLOR, 3);*/
 
         Rect[] facesArray = faces.toArray();
         for (int i = 0; i < facesArray.length; i++)
