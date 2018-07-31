@@ -7,6 +7,7 @@
 
 #include <android/log.h>
 #include <chrono>
+#include <opencv2/imgproc/imgproc.hpp>
 
 
 
@@ -36,49 +37,41 @@ public:
     }
 
     void detect(const cv::Mat &Image, std::vector<cv::Rect> &objects)
-    //std::vector<Rect> detect(const cv::Mat &Image, std::vector<cv::Rect> &objects)
     {
-        //LOGD("CascadeDetectorAdapter::Detect: begin");
-        //LOGD("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%d, minObjSize=(%dx%d), maxObjSize=(%dx%d)", scaleFactor, minNeighbours, minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
         LOGI("CascadeDetectorAdapter::Detect: begin");
-        //LOGI("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%d, minObjSize=(%dx%d), maxObjSize=(%dx%d)", scaleFactor, minNeighbours, minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
-        //Detector->detectMultiScale(Image, objects, scaleFactor, minNeighbours, 0, minObjSize, maxObjSize);
 
-        //Detector->detectMultiScale(Image, objects, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000) );
-
-        //*********************************************************************
         double const TH_weight=5.0;//Good empirical threshold values: 5-7
         std::vector<int> reject_levels;
         std::vector<double> weights;
-
         std::vector<Rect> faces = {};
-        //std::vector<Rect> realfaces = {};
-        //Detector->detectMultiScale(Image, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
         double scaleFactor = 1.1;
-        double minNeighbours = 5;
+        int minNeighbours = 5;
         Detector->detectMultiScale(Image, faces, reject_levels, weights, scaleFactor, minNeighbours, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
-        LOGI("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%d, TH_weight=%.2f", scaleFactor, minNeighbours, TH_weight);
+        LOGI("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%i, TH_weight=%.2f", scaleFactor, minNeighbours, TH_weight);
+        //LOGI("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%i, TH_weight=%.2f, minObjSize=(%dx%d), maxObjSize=(%dx%d)", scaleFactor, minNeighbours, TH_weight,minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
         int i=0;
         for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ ) {
-            LOGI("weights[i]:%f", weights[i]);
+            //LOGI("weights[i]:%f", weights[i]);
+            LOGI("detected Faces size (wxh): %i x %i", (int)faces.at(i).width, (int)faces.at(i).height);
             if (weights[i] >= TH_weight)//Good empirical threshold values: 5-7
             {
-                //LOGI("weightsACCEPTED[i]:%f", weights[i]);
-                //realfaces.push_back(*r);
+
                 objects.push_back(*r);
+
+                //draw detected faces------------------------------------
+              /*  Mat img;
+                Image.copyTo(img);
+                rectangle(img, objects[i], Scalar(255, 255, 0), 2, 8, 0);//4, 8, 0*/
+                //----------------------------------------------------
             }
         }
-        LOGI("#realFaces: %i", (int)faces.size());
-        //return realfaces;*/
-        //*********************************************************************
+        LOGI("#realFaces: %i (TH_weight= %.2f)", (int)faces.size(), TH_weight);
 
-        //LOGD("CascadeDetectorAdapter::Detect: end");
         LOGI("CascadeDetectorAdapter::Detect: end");
     }
 
     virtual ~CascadeDetectorAdapter()
     {
-        //LOGD("CascadeDetectorAdapter::Detect::~Detect");
         LOGI("CascadeDetectorAdapter::Detect::~Detect");
     }
 
@@ -114,7 +107,6 @@ JNIEXPORT jlong JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeCrea
     string stdFileName(jnamestr);
     jlong result = 0;
 
-    //LOGD("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeCreateObject");
     LOGI("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeCreateObject");
 
     try
@@ -124,10 +116,11 @@ JNIEXPORT jlong JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeCrea
         cv::Ptr<CascadeDetectorAdapter> trackingDetector = makePtr<CascadeDetectorAdapter>(
                 makePtr<CascadeClassifier>(stdFileName));
         result = (jlong)new DetectorAgregator(mainDetector, trackingDetector);
+
         if (faceSize > 0)
         {
             mainDetector->setMinObjectSize(Size(faceSize, faceSize));
-            trackingDetector->setMinObjectSize(Size(faceSize, faceSize));//uncommented
+            //trackingDetector->setMinObjectSize(Size(faceSize, faceSize));//uncommented
         }
     }
     catch(cv::Exception& e)
@@ -243,9 +236,9 @@ LOGI("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeSetFaceSize -- BEGI
 try
 {
 if (faceSize > 0)
-{
+{LOGI("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeSetFaceSize -> faceSize:",faceSize);
 ((DetectorAgregator*)thiz)->mainDetector->setMinObjectSize(Size(faceSize, faceSize));
-((DetectorAgregator*)thiz)->trackingDetector->setMinObjectSize(Size(faceSize, faceSize));
+//((DetectorAgregator*)thiz)->trackingDetector->setMinObjectSize(Size(faceSize, faceSize));//commented
 }
 }
 catch(cv::Exception& e)
