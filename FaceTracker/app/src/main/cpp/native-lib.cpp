@@ -70,6 +70,8 @@ typedef struct
 
 float FACE_RECOGNIZE_THRESH = 0.55;
 
+void save_face_stamp(const char *name, const array2d<rgb_pixel> &img, std::vector<dlib::rectangle> &dets);
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_dlib_android_FaceRecognizer_loadResourcesPart1(JNIEnv *env, jobject instance) {
@@ -119,7 +121,41 @@ Java_dlib_android_FaceRecognizer_loadResourcesPart1(JNIEnv *env, jobject instanc
 
     return 0;
 
-}extern "C"
+}
+
+void save_face_stamp(const char *name, const array2d<rgb_pixel> &img, std::vector<dlib::rectangle> &dets) {
+    auto face = dets.front();
+    std::vector<matrix<rgb_pixel>> faces;
+    int x = face.left();
+    int y = face.top();
+    int width = face.width();
+    int height = face.height();
+
+    auto shape = sp(img, face);
+    matrix<rgb_pixel> face_chip;
+    extract_image_chip(img, get_face_chip_details(shape, 150, 0.25), face_chip);
+    faces.push_back(move(face_chip));
+    std::vector<matrix<float, 0, 1>> face_descriptors = net1(faces);
+
+    if (face_descriptors.size() > 0) {
+        matrix<float, 0, 1> face_desc = face_descriptors[0];
+
+        std::vector<string> names;
+        int cx = 0;
+        for(auto kv : known_faces) {
+            if(0 == kv.first.find(name)) {
+                cx++;
+            }
+        }
+
+        std:string person_name = string(name) + "_" + to_string(cx);
+        known_faces.insert({person_name, face_desc});
+        string filename = "/sdcard/Download/" + person_name + ".vec";
+        serialize(filename) << face_desc;
+    }
+}
+
+extern "C"
 JNIEXPORT jint JNICALL
 Java_dlib_android_FaceRecognizer_loadResourcesPart2(JNIEnv *env, jobject instance) {
 
@@ -319,7 +355,7 @@ Java_dlib_android_FaceRecognizer_saveFace(JNIEnv *env, jobject instance, jstring
     int y;
     int x;
     int ret;
-    array2d<rgb_pixel> img;
+    array2d<rgb_pixel> img, temp;
     if ((ret = AndroidBitmap_getInfo(env, bmp, &infocolor)) < 0) {
         LOGE("AndroidBitmap_getInfo() failed ! error=%d", ret);
         return 1000;
@@ -348,38 +384,33 @@ Java_dlib_android_FaceRecognizer_saveFace(JNIEnv *env, jobject instance, jstring
     }
 
     std::vector<dlib::rectangle> dets = detector1(img);
-
     if(dets.size() > 0 ) {
-        auto face = dets.front();
-        std::vector<matrix<rgb_pixel>> faces;
-        int x = face.left();
-        int y = face.top();
-        int width = face.width();
-        int height = face.height();
-
-        auto shape = sp(img, face);
-        matrix<rgb_pixel> face_chip;
-        extract_image_chip(img, get_face_chip_details(shape, 150, 0.25), face_chip);
-        faces.push_back(move(face_chip));
-        std::vector<matrix<float, 0, 1>> face_descriptors = net1(faces);
-
-        if (face_descriptors.size() > 0) {
-            matrix<float, 0, 1> face_desc = face_descriptors[0];
-
-            std::vector<std::string> names;
-            int cx = 0;
-            for(auto kv : known_faces) {
-                if(0 == kv.first.find(name)) {
-                    cx++;
+        save_face_stamp(name, img, dets);
+    }
+    else{ //dirty patch to handle phone orientation
+        LOGI("rotate face 90");
+        dlib::rotate_image(img, temp, 90 * pi / 180);
+        dets = detector1(temp);
+        if(dets.size() > 0 ) {
+            save_face_stamp(name, temp, dets);
+        } else{
+            LOGI("rotate face 180");
+            dlib::rotate_image(img, temp, 180 * pi / 180);
+            dets = detector1(temp);
+            if(dets.size() > 0 ) {
+                save_face_stamp(name, temp, dets);
+            } else {
+                LOGI("rotate face 270");
+                dlib::rotate_image(img, temp, 270 * pi / 180);
+                dets = detector1(temp);
+                if(dets.size() > 0 ) {
+                    save_face_stamp(name, temp, dets);
+                } else {
+                    LOGI("Four rotations done.");
                 }
             }
-
-            std:string person_name = std::string(name) + "_" + std::to_string(cx);
-            known_faces.insert({person_name, face_desc});
-            std::string filename = "/sdcard/Download/" + person_name + ".vec";
-            dlib::serialize(filename) << face_desc;
         }
-    }else {
+
         LOGI("face Not detected");
         return 1;
     }

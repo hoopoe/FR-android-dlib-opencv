@@ -38,6 +38,7 @@ public class CustomDetector extends Detector<Face> {
 
     private int faceid;
     private int x, y, w, h;
+    public volatile int frameRotation;
 
     CustomDetector(Detector<Face> delegate, FaceRecognizer faceRecognizer)
     {
@@ -67,6 +68,7 @@ public class CustomDetector extends Detector<Face> {
     //@Override
     public SparseArray<Face> detect(Frame frame) {
         mFrame = frame;
+        frameRotation = frame.getMetadata().getRotation();
 
         if (!IsBusy && y > 0 && recognitionHandler != null) {
             IsBusy = true;

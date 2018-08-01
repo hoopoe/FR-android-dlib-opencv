@@ -309,23 +309,23 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             @Override
             public void onPictureTaken(byte[] bytes) {
                 Bitmap tmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                int rotation = getWindowManager().getDefaultDisplay().getRotation();
-                int frameRotation = 0;
-                switch (rotation) //for gv detector
-                {
-                    case 1://cc once
-                        frameRotation = 0;
-                        break;
-                    case 2: //cc 2
-                        frameRotation = 3;
-                        break;
-                    case 3: //cc3
-                        frameRotation = 2;
-                        break;
-                    default: //display vertical
-                        frameRotation = 1;
-                        break;
-                }
+                //int rotation = getWindowManager().getDefaultDisplay().getRotation();
+                int frameRotation = customDetector.frameRotation;
+//                switch (rotation) //for gv detector
+//                {
+//                    case 1://cc once
+//                        frameRotation = 0;
+//                        break;
+//                    case 2: //cc 2
+//                        frameRotation = 3;
+//                        break;
+//                    case 3: //cc3
+//                        frameRotation = 2;
+//                        break;
+//                    default: //display vertical
+//                        frameRotation = 1;
+//                        break;
+//                }
                 Frame frame = new Frame.Builder()
                         .setBitmap(tmp)
                         .setRotation(frameRotation)
