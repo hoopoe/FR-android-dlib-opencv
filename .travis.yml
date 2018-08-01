@@ -42,8 +42,8 @@ before_script:
   - unzip -q master.zip
 #  - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
   - export OPENCV_ANDROID_SDK=$(pwd)/opencv3-android-sdk-with-contrib-master/OpenCV-android-sdk
-  - git clone https://github.com/tensorflow/tensorflow.git
-  - export TF_SRC_ROOT=$(pwd)/tensorflow
+#  - git clone https://github.com/tensorflow/tensorflow.git
+#  - export TF_SRC_ROOT=$(pwd)/tensorflow
 
 script:
 - cd FaceTracker

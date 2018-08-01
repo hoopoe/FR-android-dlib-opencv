@@ -140,4 +140,5 @@ public class CustomDetector extends Detector<Face> {
     public boolean setFocus(int id) {
         return mDelegate.setFocus(id);
     }
+
 }

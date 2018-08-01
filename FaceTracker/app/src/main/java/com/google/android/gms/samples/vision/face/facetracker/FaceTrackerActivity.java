@@ -98,7 +98,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
     private CameraSourcePreview mPreview;
     private GraphicOverlay mGraphicOverlay;
-    private Button mBtnDetect, btnTraining;
+    private Button mBtnDetect, btnTraining, mBtnSwitchCamera;
     private CustomDetector customDetector;
     private EditText mTxtTrainingName;
     private TextView mlblTraining;
@@ -114,6 +114,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     private int mBackCamHeight;
 
     private FaceRecognizer mFaceRecognizer;
+    private boolean mIsFront;
+    private Context context;
 
     //==============================================================================================
     // Activity Methods
@@ -130,6 +132,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         mPreview = (CameraSourcePreview) findViewById(R.id.preview);
         mGraphicOverlay = (GraphicOverlay) findViewById(R.id.faceOverlay);
         mBtnDetect = (Button) findViewById(R.id.btnDetect);
+        mBtnSwitchCamera = (Button) findViewById(R.id.btnSwitchCamera);
+
         btnTraining = (Button) findViewById(R.id.btnTraining);
         mlblTraining = (TextView) findViewById(R.id.lblTraining);
 
@@ -143,7 +147,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         int rs = ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
 
         if (rc == PackageManager.PERMISSION_GRANTED && rs == PackageManager.PERMISSION_GRANTED) {
-            createCameraSource();
+            createCameraSource(CameraSource.CAMERA_FACING_BACK);
         } else {
             requestCameraAndSdCardPermission();
         }
@@ -216,9 +220,9 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      * to other detection examples to enable the barcode detector to detect small barcodes
      * at long distances.
      */
-    private void createCameraSource() {
+    private void createCameraSource(int cameraFacing) {
 
-        Context context = getApplicationContext();
+        context = getApplicationContext();
 
 
         FaceDetector detector = new FaceDetector.Builder(context)
@@ -237,9 +241,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .setMinFaceSize(0.015f)  // 80 / 5312 detect up to 80 pixels head width
                 .build();
 
-        //mFaceRecognizer
         customDetector = new CustomDetector(detector, mFaceRecognizer);
-
         customDetector.setProcessor(
                 new MultiProcessor.Builder<>(new GraphicFaceTrackerFactory())
                         .build());
@@ -268,11 +270,14 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         if (orientation == Configuration.ORIENTATION_PORTRAIT) {
             w = mBackCamHeight;
             h = mBackCamWidth;
+        } else{
+            w = mFrontCamHeight;
+            h = mFrontCamWidth;
         }
 
         mCameraSource = new CameraSource.Builder(context, customDetector)
                 .setRequestedPreviewSize(w, h)
-                .setFacing(CameraSource.CAMERA_FACING_BACK)
+                .setFacing(cameraFacing)
                 .setAutoFocusEnabled(true)
                 .setRequestedFps(10)
                 .build();
@@ -298,6 +303,23 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
             }
         });
+
+        mBtnSwitchCamera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mIsFront = !mIsFront;
+                customDetector.setHandlerListener(null);
+                customDetector.release();
+                mCameraSource.release();
+
+                if (mIsFront) {
+                    createCameraSource(CameraSource.CAMERA_FACING_FRONT);
+                } else{
+                    createCameraSource(CameraSource.CAMERA_FACING_BACK);
+                }
+                startCameraSource();
+            }
+        });
     }
 
     public void hideSaveFaceLabel() {
@@ -309,23 +331,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             @Override
             public void onPictureTaken(byte[] bytes) {
                 Bitmap tmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                //int rotation = getWindowManager().getDefaultDisplay().getRotation();
                 int frameRotation = customDetector.frameRotation;
-//                switch (rotation) //for gv detector
-//                {
-//                    case 1://cc once
-//                        frameRotation = 0;
-//                        break;
-//                    case 2: //cc 2
-//                        frameRotation = 3;
-//                        break;
-//                    case 3: //cc3
-//                        frameRotation = 2;
-//                        break;
-//                    default: //display vertical
-//                        frameRotation = 1;
-//                        break;
-//                }
                 Frame frame = new Frame.Builder()
                         .setBitmap(tmp)
                         .setRotation(frameRotation)
@@ -451,7 +457,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             Log.d(TAG, "Camera permission granted - initialize the camera source");
             // we have permission, so create the camerasource
             mFaceRecognizer.loadNative();
-            createCameraSource();
+            createCameraSource(CameraSource.CAMERA_FACING_BACK);
 
             return;
         }

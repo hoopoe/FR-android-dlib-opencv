@@ -26,6 +26,15 @@
       android:drawableRight="@drawable/training"
       />
 
+  <Button
+      android:id="@+id/btnSwitchCamera"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:gravity="center"
+      android:layout_alignParentBottom="true"
+      android:layout_centerInParent="true"
+      android:drawableRight="@drawable/switch_camera"
+      />
 
   <com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSourcePreview
       android:id="@+id/preview"
