@@ -62,7 +62,7 @@ import java.io.IOException;
 import java.util.List;
 
 import dlib.android.FaceRecognizer;
-import tensorflow.detector.spc.CameraActivityMain;
+import tensorflow.detector.spc.CameraActivityMainSPC;
 import opencv.android.fdt.FdActivity;
 
 import static android.os.Environment.getExternalStorageDirectory;
@@ -280,7 +280,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         mBtnDetect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent myIntent = new Intent(FaceTrackerActivity.this, OpenCvActivity.class);
+                Intent myIntent = new Intent(FaceTrackerActivity.this, CameraActivityMainSPC.class);
                 //Intent myIntent = new Intent(FaceTrackerActivity.this, FdActivity.class);
                 FaceTrackerActivity.this.startActivity(myIntent);
             }

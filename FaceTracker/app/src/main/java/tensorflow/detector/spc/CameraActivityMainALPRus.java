@@ -22,6 +22,7 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -44,6 +45,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.os.Trace;
+import android.preference.PreferenceManager;
 import android.util.DisplayMetrics;
 import android.util.Size;
 import android.util.TypedValue;
@@ -54,7 +56,11 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
@@ -68,19 +74,16 @@ import tensorflow.detector.spc.tracking.MultiBoxTracker;
 import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.samples.vision.face.facetracker.R;
 
-public class CameraActivityMain extends Activity
+import org.opencv.android.facetracker.OpenCvActivity;
+
+public class CameraActivityMainALPRus extends Activity
     implements OnImageAvailableListener, Camera.PreviewCallback {
 
-  private static final int TF_OD_API_INPUT_SIZE = 300;
-  // Tensorflow Object Detection API frozen checkpoints
-  private static final String TF_OD_API_MODEL_FILE =
-          "file:///android_asset/spc_mobilenet_v3_1x_0.52_cleaned.pb";
-  private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/spc_labels.txt";
-
-
-  private static final boolean MAINTAIN_ASPECT = true;
-  // Minimum detection confidence to track a detection.
-  private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
+  private static final float MINIMUM_CONFIDENCE = 0.3f;
+  static final String RUNTIME_DATA_DIR_ASSET = "runtime_data";
+  static final String ANDROID_DATA_DIR = "/data/data/com.google.android.gms.samples.vision.face.facetracker";
+  static final String OPENALPR_CONF_FILE = "openalpr.defaults.conf";
+  static final String PREF_INSTALLED_KEY = "installed";
 
   private static Size DESIRED_PREVIEW_SIZE;
 
@@ -89,9 +92,12 @@ public class CameraActivityMain extends Activity
 
   private Integer sensorOrientation;
 
-  private TensorFlowObjectDetection detector;
+  private OpenALPRDetector detector;
 
   private long lastProcessingTimeMs;
+  private long allProcessingTimeMs=0;
+  private long countOfRuns = 0;
+
   private Bitmap rgbFrameBitmap = null;
   private Bitmap croppedBitmap = null;
   private Bitmap cropCopyBitmap = null;
@@ -137,14 +143,30 @@ public class CameraActivityMain extends Activity
   protected void onCreate(final Bundle savedInstanceState) {
     LOGGER.d("onCreate " + this);
     super.onCreate(null);
-    
+
+    if (!PreferenceManager.getDefaultSharedPreferences(
+            getApplicationContext())
+            .getBoolean(PREF_INSTALLED_KEY, false)) {
+
+      PreferenceManager.getDefaultSharedPreferences(
+              getApplicationContext())
+              .edit().putBoolean(PREF_INSTALLED_KEY, true).apply();
+
+            /*PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).
+                    edit().putString(RUNTIME_DATA_DIR_ASSET, ANDROID_DATA_DIR).commit();*/
+
+      copyAssetFolder(getAssets(), RUNTIME_DATA_DIR_ASSET,
+              ANDROID_DATA_DIR + File.separatorChar + RUNTIME_DATA_DIR_ASSET);
+      LOGGER.d("Assets copied");
+    }
+
     DisplayMetrics metrics = new DisplayMetrics();
     getWindowManager().getDefaultDisplay().getMetrics(metrics);
     DESIRED_PREVIEW_SIZE = new Size(metrics.widthPixels, metrics.heightPixels);
-    
+
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-    setContentView(R.layout.activity_camera);
+    setContentView(R.layout.activity_camera_alpr_us);
 
     mBtnSwitch = (Button) findViewById(R.id.btnSwitch);
 
@@ -366,7 +388,7 @@ public class CameraActivityMain extends Activity
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       if (shouldShowRequestPermissionRationale(PERMISSION_CAMERA) ||
           shouldShowRequestPermissionRationale(PERMISSION_STORAGE)) {
-        Toast.makeText(CameraActivityMain.this,
+        Toast.makeText(CameraActivityMainALPRus.this,
             "Camera AND storage permission are required for this app", Toast.LENGTH_LONG).show();
       }
       requestPermissions(new String[] {PERMISSION_CAMERA, PERMISSION_STORAGE}, PERMISSIONS_REQUEST);
@@ -431,7 +453,7 @@ public class CameraActivityMain extends Activity
                 public void onPreviewSizeChosen(final Size size, final int rotation) {
                   previewHeight = size.getHeight();
                   previewWidth = size.getWidth();
-                  CameraActivityMain.this.onPreviewSizeChosen(size, rotation);
+                  CameraActivityMainALPRus.this.onPreviewSizeChosen(size, rotation);
                 }
               },
               this,
@@ -455,8 +477,8 @@ public class CameraActivityMain extends Activity
     mBtnSwitch.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        Intent myIntent = new Intent(CameraActivityMain.this, FaceTrackerActivity.class);
-        CameraActivityMain.this.startActivity(myIntent);
+        Intent myIntent = new Intent(CameraActivityMainALPRus.this, FaceTrackerActivity.class);
+        CameraActivityMainALPRus.this.startActivity(myIntent);
       }
     });
   }
@@ -523,6 +545,7 @@ public class CameraActivityMain extends Activity
   }
 
   private BorderedText borderedText;
+
   public void onPreviewSizeChosen(final Size size, final int rotation) {
     final float textSizePx =
             TypedValue.applyDimension(
@@ -532,17 +555,18 @@ public class CameraActivityMain extends Activity
 
     tracker = new MultiBoxTracker(this);
 
-    int cropSize = TF_OD_API_INPUT_SIZE;
-
     try {
-      detector = TensorFlowObjectDetection.create(
-              getAssets(), TF_OD_API_MODEL_FILE, TF_OD_API_LABELS_FILE, TF_OD_API_INPUT_SIZE);
-      cropSize = TF_OD_API_INPUT_SIZE;
+      String openAlprConfFile = ANDROID_DATA_DIR + File.separatorChar +
+              RUNTIME_DATA_DIR_ASSET + File.separatorChar +OPENALPR_CONF_FILE;
+      String openAlprRuntimeDataDir = ANDROID_DATA_DIR + File.separatorChar +
+              RUNTIME_DATA_DIR_ASSET;
+
+      detector = OpenALPRDetector.create(openAlprRuntimeDataDir, openAlprConfFile, "us");
     } catch (final IOException e) {
       LOGGER.e("Exception initializing classifier!", e);
       Toast toast =
               Toast.makeText(
-                      getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
+                      getApplicationContext(), "Detector could not be initialized", Toast.LENGTH_SHORT);
       toast.show();
       finish();
     }
@@ -555,13 +579,13 @@ public class CameraActivityMain extends Activity
 
     LOGGER.i("Initializing at size %dx%d", previewWidth, previewHeight);
     rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.ARGB_8888);
-    croppedBitmap = Bitmap.createBitmap(cropSize, cropSize, Bitmap.Config.ARGB_8888);
+    croppedBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.ARGB_8888);
 
     frameToCropTransform =
             ImageUtils.getTransformationMatrix(
                     previewWidth, previewHeight,
-                    cropSize, cropSize,
-                    sensorOrientation, MAINTAIN_ASPECT);
+                    previewWidth, previewHeight,
+                    sensorOrientation, true);
 
     cropToFrameTransform = new Matrix();
     frameToCropTransform.invert(cropToFrameTransform);
@@ -594,7 +618,7 @@ public class CameraActivityMain extends Activity
             canvas.drawColor(backgroundColor);
 
             final Matrix matrix = new Matrix();
-            final float scaleFactor = 2;
+            final float scaleFactor = .5f;
             matrix.postScale(scaleFactor, scaleFactor);
             matrix.postTranslate(
                 canvas.getWidth() - copy.getWidth() * scaleFactor,
@@ -602,20 +626,15 @@ public class CameraActivityMain extends Activity
             canvas.drawBitmap(copy, matrix, new Paint());
 
             final Vector<String> lines = new Vector<String>();
-            if (detector != null) {
-              final String statString = detector.getStatString();
-              final String[] statLines = statString.split("\n");
-              for (final String line : statLines) {
-                lines.add(line);
-              }
-            }
-            lines.add("");
 
+            lines.add("");
             lines.add("Frame: " + previewWidth + "x" + previewHeight);
-            lines.add("Crop: " + copy.getWidth() + "x" + copy.getHeight());
+            //lines.add("Crop: " + copy.getWidth() + "x" + copy.getHeight());
             lines.add("View: " + canvas.getWidth() + "x" + canvas.getHeight());
-            lines.add("Rotation: " + sensorOrientation);
-            lines.add("Inference time: " + lastProcessingTimeMs + "ms");
+            //lines.add("Rotation: " + sensorOrientation);
+            lines.add("OpenALPR version: " + detector.getVersion());
+            lines.add("Processing time: " + lastProcessingTimeMs + "ms");
+
 
             borderedText.drawLines(canvas, 10, canvas.getHeight() - 10, lines);
               }
@@ -676,7 +695,7 @@ public class CameraActivityMain extends Activity
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(2.0f);
 
-                float minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
+                float minimumConfidence = MINIMUM_CONFIDENCE;
 
                 final List<Recognition> mappedRecognitions =
                         new LinkedList<Recognition>();
@@ -699,6 +718,57 @@ public class CameraActivityMain extends Activity
                 computingDetection = false;
               }
             });
+  }
+
+  private static boolean copyAssetFolder(AssetManager assetManager,
+                                         String fromAssetPath, String toPath) {
+    try {
+      String[] files = assetManager.list(fromAssetPath);
+      new File(toPath).mkdirs();
+      boolean res = true;
+      for (String file : files)
+        if (file.contains("."))
+          res &= copyAsset(assetManager,
+                  fromAssetPath + "/" + file,
+                  toPath + "/" + file);
+        else
+          res &= copyAssetFolder(assetManager,
+                  fromAssetPath + "/" + file,
+                  toPath + "/" + file);
+      return res;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return false;
+    }
+  }
+
+  private static boolean copyAsset(AssetManager assetManager,
+                                   String fromAssetPath, String toPath) {
+    InputStream in = null;
+    OutputStream out = null;
+    try {
+      in = assetManager.open(fromAssetPath);
+      new File(toPath).createNewFile();
+      out = new FileOutputStream(toPath);
+      copyFile(in, out);
+      in.close();
+      in = null;
+      out.flush();
+      out.close();
+      out = null;
+      return true;
+    } catch(Exception e) {
+      e.printStackTrace();
+      return false;
+    }
+  }
+
+  private static void copyFile(InputStream in, OutputStream out) throws IOException {
+    byte[] buffer = new byte[1024];
+    int read;
+    while((read = in.read(buffer)) != -1){
+      out.write(buffer, 0, read);
+    }
   }
 
   public void onSetDebug(final boolean debug) {
