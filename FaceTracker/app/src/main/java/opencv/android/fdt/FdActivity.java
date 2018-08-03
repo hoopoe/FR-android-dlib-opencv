@@ -18,6 +18,7 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.facetracker.*;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -42,6 +43,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
 
     private CameraBridgeViewBase   mOpenCvCameraView;
     long prev = 0;
+    int counterF=0;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -153,7 +155,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         mGray = inputFrame.gray();
 
         long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
-        Log.i(TAG,"framerate = " + 1000.0/(currentime-prev) + " fps");
+        Log.i(TAG,"framerate_onCameraFrame = " + 1000.0/(currentime-prev) + " fps");
         prev = currentime;
         Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
 
@@ -162,14 +164,25 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
 
         MatOfRect faces = new MatOfRect();
 
+        counterF++;
         if (mNativeDetector != null) {
             mNativeDetector.detect(mGray, faces);}
 
              Rect[] facesArray = faces.toArray();
-        for (int i = 0; i < facesArray.length; i++)
+        Log.i(TAG, "facesArray.length (trackedFaces):"+facesArray.length);//added by mic
+        Log.i(TAG,"#frame:"+ counterF);
+        for (int i = 0; i < facesArray.length; i++) {
             Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), FACE_RECT_COLOR, 3);
+            Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50,50), 3, 3,
+                    new Scalar(255, 0, 0, 255), 3);
+
+          //  Imgproc.rectangle(mGray, facesArray[i].tl(), facesArray[i].br(), new Scalar( 0,0,0), 2);
+           /* Imgproc.putText(mGray, String.valueOf(counterF), new Point(50,50), 3, 3,
+                    new Scalar(255, 0, 0, 255), 3);*/
+        }
 
         return mRgba;
+        //return mGray;
     }
 
 
