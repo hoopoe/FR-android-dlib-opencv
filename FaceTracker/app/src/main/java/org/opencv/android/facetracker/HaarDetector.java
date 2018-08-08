@@ -5,6 +5,9 @@ package org.opencv.android.facetracker;
  * Created by alorusso on 06/06/18.
  */
 
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfRect;
+
 public class HaarDetector {
     private static final String TAG = "OCV-HaarDetector";
 
@@ -18,8 +21,8 @@ public class HaarDetector {
         loadResources();
     }
 
-    public void OCvDetect(long imageGray, long faces) {
-        OpenCVdetector(imageGray, faces);
+    public void OCvDetect(Mat imageGray, MatOfRect faces) {
+        OpenCVdetector(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
     }
 
     private native void OpenCVdetector(long imageGray, long faces);

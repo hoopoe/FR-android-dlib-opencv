@@ -36,5 +36,10 @@ export OPENCV_ANDROID_SDK=/Users/hoopoe/Tools/OpenCV-android-sdk
   
   private static final String TF_OD_API_MODEL_FILE ="file:///android_asset/spc_mobilenet_v3_1x_0.52_cleaned.pb"
 
-5. OpenCV disabled for now
+5. To execute OpenCV related tests for comparison of results on images and video.
+   For input video:
+	- create "myAppFolder" in phone root folder
+	- copy file video in 'myAppFolder'
+   Test images comes with the application (they are in the ASSET folder)
+   Test results are all in the phone root location in the "myAppRes" folder, created automatically.
 
