@@ -6,6 +6,7 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
 import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -51,6 +52,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     Button mBtnSwitch;
     int cameraId = -1;
     long prev = 0;
+    int counterF=0;
 
     //-----------------------
 
@@ -154,7 +156,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         // what are the following used for?
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
-
+        Log.i(TAG,"#processor:"+Runtime.getRuntime().availableProcessors());
         onListenButton();
     }
 
@@ -218,22 +220,35 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
         long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
         Log.i(TAG,"framerate = " + 1000.0/(currentime-prev) + " fps");
-        prev = currentime;
         Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
+
+        //compute how long time it's displayed the image----------
+        Log.i(TAG,"1/framerate = " + (currentime-prev)/1000.0 + " [sec]");
+        //--------------------------------------------------------
+        prev = currentime;
+
 
         MatOfRect faces = new MatOfRect();
 
+        counterF++;
+        Log.i(TAG,"#frame:"+ counterF);
+
         hd.OCvDetect(mRgba, faces);
 
-        //mJavaDetector.detectMultiScale(mGray, faces, 1.1, 3, 0,new Size(10,10), new Size());
-
-    /*   Rect[] facesArray = faces.toArray();
-         for (int i = 0; i < facesArray.length; i++)
-         Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), DETECT_BOX_COLOR, 3);*/
+        //compute the time to drawing rectangles
+        long startD = SystemClock.currentThreadTimeMillis();//Returns milliseconds running in the current thread.
 
         Rect[] facesArray = faces.toArray();
-        for (int i = 0; i < facesArray.length; i++)
+        Log.i(TAG, "facesArray.length (trackedFaces):"+facesArray.length);
+        for (int i = 0; i < facesArray.length; i++) {
             Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), TRACKER_BOX_COLOR, 3);
+            Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
+                    new Scalar(255, 0, 0, 255), 3);
+        }
+
+        long delta = SystemClock.currentThreadTimeMillis() - startD;//msec
+        Log.i(TAG,"OpenCVActivity_elapsedTime4Drawing = " + delta/1000.0 + "[sec]");//elapsed time in seconds
+
 
         return mRgba;
     }
