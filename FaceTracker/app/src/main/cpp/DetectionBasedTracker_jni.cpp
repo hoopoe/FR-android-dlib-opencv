@@ -1,71 +1,83 @@
-//
-// Created by alorusso on 12/07/18.
-//
-
 #include "DetectionBasedTracker_jni.h"
+#include <string>
+#include <vector>
+#include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/objdetect.hpp>
 
-#include <string>
-#include <vector>
-
 #include <android/log.h>
 #include <chrono>
+#include <opencv2/imgproc.hpp>
 
-#define LOG_TAG "Fd-OCV-DBasedT"
+
+
+#define LOG_TAG "Fd-DBasedT"
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+#define LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+
+
+extern "C"
+{
+
 
 using namespace std;
 using namespace cv;
 
-inline void vector_Rect_to_Mat(vector<Rect>& v_rect, Mat& mat)
-{
-    mat = Mat(v_rect, true);
-}
+int numframe        = 0;
+int nativeNumFrame  = 0;
+int firstDetection  = 0;
+vector<Rect> prevRectFaces = {};
 
-class CascadeDetectorAdapter: public DetectionBasedTracker::IDetector
-{
+
+CascadeClassifier face_cascade;
+
+class CascadeDetectorAdapter : public DetectionBasedTracker::IDetector {
 public:
-    CascadeDetectorAdapter(cv::Ptr<cv::CascadeClassifier> detector):
+    CascadeDetectorAdapter(cv::Ptr<cv::CascadeClassifier> detector) :
             IDetector(),
-            Detector(detector)
-    {
-        LOGD("CascadeDetectorAdapter::Detect::Detect");
+            Detector(detector) {
+        LOGD("CascadeDetectorAdapter: CV_Assert(detector)");
         CV_Assert(detector);
     }
 
-    void detect(const cv::Mat &Image, std::vector<cv::Rect> &objects)
-    {
-        LOGD("CascadeDetectorAdapter::Detect: begin");
-        LOGD("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%d, minObjSize=(%dx%d), maxObjSize=(%dx%d)", scaleFactor, minNeighbours, minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
-        Detector->detectMultiScale(Image, objects, scaleFactor, minNeighbours, 0, minObjSize, maxObjSize);
 
-        //Detector->detectMultiScale(Image, objects, 1.1, 3, 0, Size(20,20), Size(1000,1000));
+    void detect(const cv::Mat &Image, std::vector<cv::Rect> &objects) {
+        LOGD("CascadeDetectorAdapter::Detect: BEGIN");
 
-        LOGD("CascadeDetectorAdapter::Detect: end");
+        // LOGD("CascadeDetectorAdapter::Detect: scaleFactor=%.2f, minNeighbours=%d, minObjSize=(%dx%d), maxObjSize=(%dx%d)",
+        // scaleFactor, minNeighbours, minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
+
+        //Detector->detectMultiScale(Image, objects, scaleFactor, minNeighbours, 0, minObjSize, maxObjSize);
+        Detector->detectMultiScale(Image, objects, 1.1, 3, 0, Size(0, 0), Size(1000, 1000));
+        LOGD("CALLED DetectMultiScale");
+        LOGD("CascadeDetectorAdapter::Detect: NUM FRAME = %d", numframe++);
+
+        LOGD("CascadeDetectorAdapter::Detect: NUM of faces = %d", objects.size());
+        LOGD("CascadeDetectorAdapter::Detect: END");
     }
 
-    virtual ~CascadeDetectorAdapter()
-    {
+    virtual ~CascadeDetectorAdapter() {
         LOGD("CascadeDetectorAdapter::Detect::~Detect");
     }
+
 
 private:
     CascadeDetectorAdapter();
 
     cv::Ptr<cv::CascadeClassifier> Detector;
+
 };
 
-struct DetectorAgregator
-{
+struct DetectorAgregator {
     cv::Ptr<CascadeDetectorAdapter> mainDetector;
     cv::Ptr<CascadeDetectorAdapter> trackingDetector;
 
     cv::Ptr<DetectionBasedTracker> tracker;
-    DetectorAgregator(cv::Ptr<CascadeDetectorAdapter>& _mainDetector, cv::Ptr<CascadeDetectorAdapter>& _trackingDetector):
+
+    DetectorAgregator(cv::Ptr<CascadeDetectorAdapter> &_mainDetector,
+                      cv::Ptr<CascadeDetectorAdapter> &_trackingDetector) :
             mainDetector(_mainDetector),
-            trackingDetector(_trackingDetector)
-    {
+            trackingDetector(_trackingDetector) {
         CV_Assert(_mainDetector);
         CV_Assert(_trackingDetector);
 
@@ -74,194 +86,143 @@ struct DetectorAgregator
     }
 };
 
+
 JNIEXPORT jlong JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeCreateObject
-        (JNIEnv * jenv, jclass, jstring jFileName, jint faceSize)
-{
-    LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeCreateObject enter");
-    const char* jnamestr = jenv->GetStringUTFChars(jFileName, NULL);
+        (JNIEnv *jenv, jclass, jstring jFileName, jint faceSize) {
+    LOGD("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeCreateObject enter");
+    const char *jnamestr = jenv->GetStringUTFChars(jFileName, NULL);
     string stdFileName(jnamestr);
     jlong result = 0;
 
-    LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeCreateObject");
 
-    try
-    {
+    try {
         cv::Ptr<CascadeDetectorAdapter> mainDetector = makePtr<CascadeDetectorAdapter>(
                 makePtr<CascadeClassifier>(stdFileName));
+
         cv::Ptr<CascadeDetectorAdapter> trackingDetector = makePtr<CascadeDetectorAdapter>(
                 makePtr<CascadeClassifier>(stdFileName));
-        result = (jlong)new DetectorAgregator(mainDetector, trackingDetector);
-        if (faceSize > 0)
-        {
-            mainDetector->setMinObjectSize(Size(faceSize, faceSize));
-            //trackingDetector->setMinObjectSize(Size(faceSize, faceSize));
+
+        if ( !face_cascade.load(stdFileName.c_str()) ) {
+            LOGI("OCV resources NOT loaded");
+            return 0;
+        } else {
+            LOGI("OCV resources loaded");
         }
+
+        // initialization after run from mobile
+        numframe        = 0;
+        nativeNumFrame  = 0;
+        firstDetection  = 0;
+        prevRectFaces = {};
+
+        result = (jlong) new DetectorAgregator(mainDetector, trackingDetector);
+        //if (faceSize > 0)
+        //{
+        mainDetector->setMinObjectSize(Size(faceSize, faceSize));
+        //    trackingDetector->setMinObjectSize(Size(faceSize, faceSize));//uncommented
+        //}
     }
-    catch(cv::Exception& e)
-    {
-        LOGD("nativeCreateObject caught cv::Exception: %s", e.what());
+    catch (cv::Exception &e) {
+        LOGI("nativeCreateObject caught cv::Exception: %s", e.what());
         jclass je = jenv->FindClass("org/opencv/core/CvException");
-        if(!je)
+        if (!je)
             je = jenv->FindClass("java/lang/Exception");
         jenv->ThrowNew(je, e.what());
     }
-    catch (...)
-    {
-        LOGD("nativeCreateObject caught unknown exception");
+    catch (...) {
+        LOGI("nativeCreateObject caught unknown exception");
         jclass je = jenv->FindClass("java/lang/Exception");
-        jenv->ThrowNew(je, "Unknown exception in JNI code of DetectionBasedTracker.nativeCreateObject()");
+        jenv->ThrowNew(je,
+                       "Unknown exception in JNI code of DetectionBasedTrackerMOD.nativeCreateObject()");
         return 0;
     }
 
-    LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeCreateObject exit");
+    LOGI("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeCreateObject exit");
     return result;
 }
 
 JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDestroyObject
-(JNIEnv * jenv, jclass, jlong thiz)
-{
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDestroyObject");
+        (JNIEnv *jenv, jclass, jlong thiz) {
+    LOGD("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeDestroyObject enter");
 
-try
-{
-if(thiz != 0)
-{
-((DetectorAgregator*)thiz)->tracker->stop();
-delete (DetectorAgregator*)thiz;
-}
-}
-catch(cv::Exception& e)
-{
-LOGD("nativeDestroyObject caught cv::Exception: %s", e.what());
-jclass je = jenv->FindClass("org/opencv/core/CvException");
-if(!je)
-je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, e.what());
-}
-catch (...)
-{
-LOGD("nativeDestroyObject caught unknown exception");
-jclass je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, "Unknown exception in JNI code of DetectionBasedTracker.nativeDestroyObject()");
-}
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDestroyObject exit");
-}
-
-JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeStart
-(JNIEnv * jenv, jclass, jlong thiz)
-{
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeStart");
-
-try
-{
-((DetectorAgregator*)thiz)->tracker->run();
-}
-catch(cv::Exception& e)
-{
-LOGD("nativeStart caught cv::Exception: %s", e.what());
-jclass je = jenv->FindClass("org/opencv/core/CvException");
-if(!je)
-je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, e.what());
-}
-catch (...)
-{
-LOGD("nativeStart caught unknown exception");
-jclass je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, "Unknown exception in JNI code of DetectionBasedTracker.nativeStart()");
-}
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeStart exit");
-}
-
-JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeStop
-(JNIEnv * jenv, jclass, jlong thiz)
-{
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeStop");
-
-try
-{
-((DetectorAgregator*)thiz)->tracker->stop();
-}
-catch(cv::Exception& e)
-{
-LOGD("nativeStop caught cv::Exception: %s", e.what());
-jclass je = jenv->FindClass("org/opencv/core/CvException");
-if(!je)
-je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, e.what());
-}
-catch (...)
-{
-LOGD("nativeStop caught unknown exception");
-jclass je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, "Unknown exception in JNI code of DetectionBasedTracker.nativeStop()");
-}
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeStop exit");
-}
-
-JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeSetFaceSize
-(JNIEnv * jenv, jclass, jlong thiz, jint faceSize)
-{
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeSetFaceSize -- BEGIN");
-
-try
-{
-if (faceSize > 0)
-{
-((DetectorAgregator*)thiz)->mainDetector->setMinObjectSize(Size(faceSize, faceSize));
-//((DetectorAgregator*)thiz)->trackingDetector->setMinObjectSize(Size(faceSize, faceSize));
-}
-}
-catch(cv::Exception& e)
-{
-LOGD("nativeStop caught cv::Exception: %s", e.what());
-jclass je = jenv->FindClass("org/opencv/core/CvException");
-if(!je)
-je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, e.what());
-}
-catch (...)
-{
-LOGD("nativeSetFaceSize caught unknown exception");
-jclass je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, "Unknown exception in JNI code of DetectionBasedTracker.nativeSetFaceSize()");
-}
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeSetFaceSize -- END");
+    try {
+        if (thiz != 0) {
+            ((DetectorAgregator *) thiz)->tracker->stop();
+            delete (DetectorAgregator *) thiz;
+        }
+    }
+    catch (cv::Exception &e) {
+        LOGI("nativeDestroyObject caught cv::Exception: %s", e.what());
+        jclass je = jenv->FindClass("org/opencv/core/CvException");
+        if (!je)
+            je = jenv->FindClass("java/lang/Exception");
+        jenv->ThrowNew(je, e.what());
+    }
+    catch (...) {
+        LOGI("nativeDestroyObject caught unknown exception");
+        jclass je = jenv->FindClass("java/lang/Exception");
+        jenv->ThrowNew(je,
+                       "Unknown exception in JNI code of DetectionBasedTrackerMOD.nativeDestroyObject()");
+    }
+    LOGI("Java_opencv_android_fdt_DetectionBasedTrackerMOD_nativeDestroyObject exit");
 }
 
 
 JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetect
-(JNIEnv * jenv, jclass, jlong thiz, jlong imageGray, jlong faces)
-{
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDetect BEGIN");
+        (JNIEnv *jenv, jclass, jlong thiz, jlong imageGray, jlong faces) {
+    LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDetect ENTER");
 
+    vector<Rect> RectFaces;
 
-auto start = std::chrono::high_resolution_clock::now();
-try
-{
-vector<Rect> RectFaces;
-((DetectorAgregator*)thiz)->tracker->process(*((Mat*)imageGray));
-((DetectorAgregator*)thiz)->tracker->getObjects(RectFaces);
-*((Mat*)faces) = Mat(RectFaces, true);
-}
-catch(cv::Exception& e)
-{
-LOGD("nativeCreateObject caught cv::Exception: %s", e.what());
-jclass je = jenv->FindClass("org/opencv/core/CvException");
-if(!je)
-je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, e.what());
-}
-catch (...)
-{
-LOGD("nativeDetect caught unknown exception");
-jclass je = jenv->FindClass("java/lang/Exception");
-jenv->ThrowNew(je, "Unknown exception in JNI code DetectionBasedTracker.nativeDetect()");
-}
-LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDetect END");
+    try {
 
-    auto finish = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = finish - start;
-    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Time-FD = %0.3fsec ", elapsed.count());
-}
+        ((DetectorAgregator *) thiz)->tracker->process(*((Mat *) imageGray));
+        ((DetectorAgregator *) thiz)->tracker->getObjects(RectFaces);
 
+        LOGD("DetectionBasedTracker_nativeDetect NativeRectFaces = %d", RectFaces.size());
+
+        // if no faces from native detector
+        if (firstDetection == 0) {
+            if(RectFaces.size() > 0)  firstDetection = 1;
+            else {
+                // if first time or every while (= six frames)
+                if ((prevRectFaces.size() == 0) || ((nativeNumFrame % 6) == 0)) {
+
+                    face_cascade.detectMultiScale(*((Mat *) imageGray), RectFaces, 1.1, 3, 0,
+                                                  Size(0, 0), Size(1000, 1000));
+                    LOGD("DetectionBasedTracker_nativeDetect AFTER MY detection: RectFaces size = %d",RectFaces.size());
+                    prevRectFaces = RectFaces;
+
+                } else  RectFaces = prevRectFaces; // there were previous face detected
+            }
+        }
+
+        LOGD("DetectionBasedTracker_nativeDetect NUM FRAME = %d", nativeNumFrame++);
+
+    }
+    catch (cv::Exception &e) {
+        LOGD("nativeCreateObject caught cv::Exception: %s", e.what());
+        jclass je = jenv->FindClass("org/opencv/core/CvException");
+        if (!je)
+            je = jenv->FindClass("java/lang/Exception");
+        jenv->ThrowNew(je, e.what());
+    }
+    catch (...) {
+        LOGD("nativeDetect caught unknown exception");
+        jclass je = jenv->FindClass("java/lang/Exception");
+        jenv->ThrowNew(je, "Unknown exception in JNI code DetectionBasedTracker.nativeDetect()");
+    }
+
+    /*
+    for (int i = 0; i < RectFaces.size(); i++)
+        rectangle(*((Mat *) imageGray), Point(RectFaces[i].x, RectFaces[i].y),
+                  Point(RectFaces[i].x + RectFaces[i].width,
+                        RectFaces[i].y + RectFaces[i].height),
+                  Scalar(255, 255, 255), 6);
+    */
+
+    *((Mat *) faces) = Mat(RectFaces, true);
+
+    LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDetect EXIT");
+}
+}

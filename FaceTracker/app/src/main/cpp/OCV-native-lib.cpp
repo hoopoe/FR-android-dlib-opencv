@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 
 #include <android/log.h>
+#include <chrono>
 
 using namespace std;
 using namespace cv;
@@ -24,20 +25,34 @@ JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_loadResources(JNIEnv *env, jobject instance);
 
 
-inline void vector_Rect_to_Mat(std::vector<Rect>& v_rect, Mat& mat)
-{
-    mat = Mat(v_rect, true);
-}
-
-
 CascadeClassifier face_cascade;
 
-vector<Rect> detect(Mat &gray) {
+
+
+//New HAAR detection function to reduce false detection
+std::vector<Rect> detectRF(Mat &gray) {
+
+    double const TH_weight = 0.0;//Good empirical threshold values: 5-7
+    std::vector<int> reject_levels;
+    std::vector<double> weights;
 
     std::vector<Rect> faces = {};
-    face_cascade.detectMultiScale(gray, faces, 1.1, 3, 0, Size(20, 20), Size(1000, 1000));
+    std::vector<Rect> realfaces = {};
+    face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 3, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
 
-    return faces;
+    int i=0;
+    for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
+    {
+
+        if (weights[i] >= TH_weight)//Good empirical threshold values: 5-7
+        {
+            LOGI("weights[%i]:%f", i, weights[i]);
+            LOGI("width = ", faces[i].width, "height =", faces[i].height);
+            realfaces.push_back(*r);
+        }
+    }
+    LOGI("#realFaces: %i", (int)realfaces.size());
+    return realfaces;
 }
 
 
@@ -60,19 +75,35 @@ JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
                                                                 jlong inputAddrMat, jlong matRects) {
 
-    vector<Rect> faces;
+    int i=0;
+    vector<Rect> faces = {};
 
     Mat &origImg = *((Mat *)inputAddrMat);
-    Mat mGray;
+    /*Mat mGray;
     cv::cvtColor(origImg, mGray, CV_BGR2GRAY);
 
-    faces = detect (mGray);
+     */
+    auto start = std::chrono::high_resolution_clock::now();
+    face_cascade.detectMultiScale(origImg, faces, 1.1, 3, 0, Size(20, 20), Size(1000, 1000));
 
+    //faces = detectRF(origImg);
+
+    //
     for (int i = 0; i < faces.size(); i++)
         rectangle(origImg, Point(faces[i].x,faces[i].y),
                            Point(faces[i].x+faces[i].width,faces[i].y+faces[i].height),
                            Scalar(255, 255, 255), 3);
 
-    vector_Rect_to_Mat(faces, *((Mat*)matRects));
+     //
+    auto finish = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = finish - start;
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Time-FD = %0.3fsec ", elapsed.count());
+
+
+    for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
+        LOGI("width = ", faces[i].width, "height =", faces[i].height);
+
+
+    *((Mat*)matRects) = Mat(faces, true);
 }
 }
