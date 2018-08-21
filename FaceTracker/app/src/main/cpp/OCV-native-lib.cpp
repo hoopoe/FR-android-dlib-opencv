@@ -43,21 +43,14 @@ vector<Rect> detect(Mat &gray) {
 
 struct byArea {
     bool operator()(const Rect &a, const Rect &b) {
-      return a.width * a.height < b.width * b.height;
-   }
+        return a.width * a.height < b.width * b.height;
+    }
 };
 
 int SKIPPED_FRAMES = 15;
 int counter = 0;
-vector<Rect> tfaces= {};
-//vector<Rect> oldFaces= {};
-
-// draw the tracked object (using multitracker_alt class)
-void DrawTrackedOBJ(MultiTracker &trackers, cv::Mat &Rgb, cv::Scalar &color) {
-    for (int i = 0; i < (int) trackers.getObjects().size(); i++) {
-        rectangle(Rgb, trackers.getObjects().at(i), color, 4, 8, 0);
-    }
-}
+////vector<Rect> tfaces= {};
+vector<Rect> oldFaces= {};
 
 
 //New HAAR detection function to reduce false detection
@@ -72,10 +65,10 @@ std::vector<Rect> detectRF(Mat &gray) {
     //end new part------------------------------------
 
     double const TH_weight=5.0;//Good empirical threshold values: 5-7 (INDOOR) - 4.0 (outdoor)
-                               //NOTE: The detection range depends on this threshold value.
-                               //      By reducing this value, you increase the possibility
-                               //      to detect a smaller face even at a longer distance,
-                               // but also to have false detections.
+    //NOTE: The detection range depends on this threshold value.
+    //      By reducing this value, you increase the possibility
+    //      to detect a smaller face even at a longer distance,
+    // but also to have false detections.
     std::vector<int> reject_levels;
     std::vector<double> weights;
 
@@ -85,11 +78,11 @@ std::vector<Rect> detectRF(Mat &gray) {
     face_cascade.detectMultiScale(s_img, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
     int i=0;
     for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ ) {
-     LOGI("weights[%i]:%f, sizeFace[i]: %i", i, weights[i], faces[i].width);
-     if (weights[i] >= TH_weight)//Good empirical threshold values: 5-7
-     {
-       realfaces.push_back(*r);
-     }
+        LOGI("weights[%i]:%f, sizeFace[i]: %i", i, weights[i], faces[i].width);
+        if (weights[i] >= TH_weight)//Good empirical threshold values: 5-7
+        {
+            realfaces.push_back(*r);
+        }
     }
     LOGI("#realFaces: %i (TH_weight= %.2f)", (int)realfaces.size(), TH_weight);
     sort( realfaces.begin(), realfaces.end(), byArea() );
@@ -126,7 +119,6 @@ String trackingAlg = "MEDIAN_FLOW"; //default tracking Algorithm
 vector<Rect2d> trackedFaces;
 bool firstTime = true;
 bool updateOK;
-int frame_num = 0;
 bool foundFaces=false;
 
 inline cv::Ptr<cv::Tracker> createTrackerByName(cv::String name) {
@@ -153,122 +145,127 @@ inline cv::Ptr<cv::Tracker> createTrackerByName(cv::String name) {
 JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
                                                                 jlong inputAddrMat, jlong matRects) {
-      Mat &origImg = *((Mat *) inputAddrMat);
-      Mat mGray;
-      vector<Rect> BBfaces, oldFaces;
-      Scalar color = Scalar(0,0,255);//blue
-      int oldNumFaces=0;
-      auto start = std::chrono::high_resolution_clock::now();
+    Mat &origImg = *((Mat *) inputAddrMat);
+    Mat mGray;
+    vector<Rect> BBfaces;//, oldFaces;
+    Scalar color = Scalar(0,0,255);//blue
+    auto start = std::chrono::high_resolution_clock::now();
 
-      counter++;
-      if((counter==1) || (counter % SKIPPED_FRAMES ==0)) {
-      BBfaces = detectRF(origImg);//new_version with HSV conversion
-
-                        if(BBfaces.size()>0) {
-                              //clear faces history if other faces are detected
-                              oldFaces.clear();
-                              tfaces.clear();
-
-                              //check for the variation of the detected faces number
-                              if(BBfaces.size()!=trackers.getObjects().size())
-                              {
-                                 /* if(BBfaces.size()>oldNumFaces)
-                                  {*/
-                                      LOGI("#detectedFaces: %i > #oldFaces: %i",(int)BBfaces.size(),(int)oldFaces.size());
-                                      vector<Rect2d> newTrackedFaces;
-
-                                      algorithms.clear();
-                                      trackedFaces.clear();
-                                      mytrackers=trackers.create();
-                                      trackers=*mytrackers;
-
-                                      for (size_t i = 0; i <BBfaces.size(); i++)
-                                      {
-                                          //Tracker initialization
-                                          algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
-                                          newTrackedFaces.push_back(BBfaces[BBfaces.size()-1-i]);//add last detected faces
-                                          tfaces.push_back(newTrackedFaces.at(i));
-                                      }
-                                      trackers.add(algorithms,origImg,newTrackedFaces);
-                                  /*}*/
-
-                              }//if(BBfaces.size()!=trackers.targetNum)
-
-                              //create history
-                              for (size_t i = 0; i < BBfaces.size(); i++) {
-                                  oldFaces.push_back(BBfaces.at(i));
-                              }
-                              oldNumFaces = (int) oldFaces.size();
-                              LOGI("#oldFaces: %i, #realFaces: %i",(int)oldFaces.size(), (int)BBfaces.size());
-                              //----------------------------------------
-                        }
-         }
-
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-        LOGI("OCV-native-lib_elapsedTime-detectRF: %.3f",elapsed_seconds);
-
-        auto startT = std::chrono::high_resolution_clock::now();
-        //Face tracking
+    counter++;
+    if((counter==1) || (counter % SKIPPED_FRAMES ==0)) {
+        BBfaces = detectRF(origImg);//new_version with HSV conversion
+        LOGI("#detectedFaces: %i != #trackedFaces: %i",(int)BBfaces.size(),(int)trackers.getObjects().size());
         if(BBfaces.size()>0) {
-       //if(oldFaces.size()>0) {
-          if(firstTime)
-          {
-              auto startI = std::chrono::high_resolution_clock::now();
-              for (size_t i = 0; i <BBfaces.size(); i++)
-              //for (size_t i = 0; i <oldFaces.size(); i++)
-              {
-                  foundFaces =true;
+            //clear faces history if other faces are detected
+            oldFaces.clear();
 
-                  //Tracker initialization
-                  algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
-                  trackedFaces.push_back(BBfaces[i]);
-                  //trackedFaces.push_back(oldFaces[i]);
-                  LOGI("#trackedFaces:%i", (int)trackedFaces.size());
-                  tfaces.push_back(trackedFaces.at(i));
-              } // end for
-              firstTime = false;
-              trackers.add(algorithms,origImg,trackedFaces);
-              auto endI = std::chrono::high_resolution_clock::now();
-              std::chrono::duration<double> elapsed_secondsI = endI-startI;
-              LOGI("OCV-native-lib_elapsedTime_Initialization: %.3f",elapsed_secondsI);
-          } // end if first time
-          else
-          {
-              auto startU = std::chrono::high_resolution_clock::now();
-              LOGI("#oldFacesAFTER1stTime:%i", oldNumFaces);
-              updateOK = trackers.update(origImg);
-              LOGI("updateOK: %i",(int)updateOK);
+            //check for the variation of the detected faces number
+            if(BBfaces.size()!=trackers.getObjects().size())
+            {
+                LOGI("#detectedFaces: %i != #oldFaces: %i",(int)BBfaces.size(),(int)oldFaces.size());
+                vector<Rect2d> newTrackedFaces;
 
-              //get Bounding Boxes of the tracked faces
-              if(updateOK)
-                 {
-                    for (size_t i = 0; i < trackers.getObjects().size(); i++) {
-                         tfaces.push_back(trackers.getObjects().at(i));
-                    }
-                    LOGI("updateOK: %i",(int)updateOK);
-                 }
-                 else{
-                     LOGI("updateOK: %i -> New detection & initialization",(int)updateOK);
-                     tfaces.clear();
-                     //oldFaces.clear();//mic
-                     counter=0;
-                     BBfaces = detectRF(origImg);//cerco solo nella regione della faccia che non  è stata aggiornata!!!
-                     firstTime==true;
-                 }
+                algorithms.clear();
+                trackedFaces.clear();
+                mytrackers=trackers.create();
+                trackers=*mytrackers;
 
-              auto endU = std::chrono::high_resolution_clock::now();
-              std::chrono::duration<double> elapsed_secondsU = endU-startU;
-              LOGI("OCV-native-lib_elapsedTime_Updating: %.3f",elapsed_secondsU);
-          }//else firstTime
+                for (size_t i = 0; i <BBfaces.size(); i++)
+                {
+                    //Tracker initialization
+                    algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
+                    newTrackedFaces.push_back(BBfaces[BBfaces.size()-1-i]);//add last detected faces
+                    rectangle(origImg, newTrackedFaces.at(i), Scalar(0,255,0), 4, 8, 0);//controllare
+                }
+                trackers.add(algorithms,origImg,newTrackedFaces);
+                newTrackedFaces.clear();
+
+            }//if(BBfaces.size()!=trackers.targetNum)
+
+            //create history
+            for (size_t i = 0; i < BBfaces.size(); i++) {
+                oldFaces.push_back(BBfaces.at(i));
+            }
+            LOGI("#oldFaces: %i, #realFaces: %i",(int)oldFaces.size(), (int)BBfaces.size());
+            //----------------------------------------
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end-start;
+    LOGI("OCV-native-lib_elapsedTime-detectRF: %.3f",elapsed_seconds);
+
+    auto startT = std::chrono::high_resolution_clock::now();
+    //Face tracking
+    if(firstTime)
+    {
+        auto startI = std::chrono::high_resolution_clock::now();
+        for (size_t i = 0; i <oldFaces.size(); i++)
+        {
+            foundFaces =true;
+
+            //Tracker initialization
+            algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
+            trackedFaces.push_back(oldFaces[i]);
+            rectangle(origImg, oldFaces.at(i), Scalar(255,255,0), 4, 8, 0);//Draw detectedFaces (YELLOW)
+        } // end for
+        firstTime = false;
+        trackers.add(algorithms,origImg,trackedFaces);
+        auto endI = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_secondsI = endI-startI;
+        LOGI("OCV-native-lib_elapsedTime_Initialization: %.3f",elapsed_secondsI);
+    } // end if first time
+    else
+    {
+        auto startU = std::chrono::high_resolution_clock::now();
+        updateOK = trackers.update(origImg);
+
+        //get Bounding Boxes of the tracked faces
+        if(updateOK)
+        {
+            int i;
+            for (i = 0; i < (int)trackers.getObjects().size(); i++) {
+                rectangle(origImg, trackers.getObjects().at(i), color, 4, 8, 0);
+            }
+        }
+        else{
+            LOGI("updateOK: %i -> New detection & initialization",(int)updateOK);
+
+            BBfaces = detectRF(origImg);//cerco solo nella regione della faccia che non  è stata aggiornata!!!
+
+            //remove all trackers
+            algorithms.clear();
+            trackedFaces.clear();
+            mytrackers=trackers.create();
+            trackers=*mytrackers;
+
+            //start a new tracker initialization
+            firstTime=true;
+
+            if(BBfaces.size()>0) {
+                oldFaces.clear();
+                //create NEW history
+                for (size_t i = 0; i < BBfaces.size(); i++) {
+                    oldFaces.push_back(BBfaces.at(i));
+                    rectangle(origImg, oldFaces.at(i), Scalar(255, 255, 0), 4, 8,
+                              0);//Draw detectedFaces (YELLOW)
+                }
+                LOGI("NEW history-> #oldFaces: %i, NEW detection-> #realFaces: %i",
+                     (int) oldFaces.size(), (int) BBfaces.size());
+            }//if(BBfaces.size()>0)
         }
 
-         //LOGI("tfaces_returned: %i)",(int)tfaces.size());
-         auto endT = std::chrono::high_resolution_clock::now();
-         std::chrono::duration<double> elapsed_secondsT = endT-startT;
-         LOGI("OCV-native-lib_elapsedTime-MFtracker: %.3f",elapsed_secondsT);
-         *((Mat*)matRects) = Mat(tfaces, true);
-    //oldFaces.clear();//mic
-    }
+        auto endU = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_secondsU = endU-startU;
+        LOGI("OCV-native-lib_elapsedTime_Updating: %.3f",elapsed_secondsU);
+    }//else firstTime
 
-    }
+    LOGI("oldfaces_returned: %i & BBfaces_returned: %i",(int)oldFaces.size(), (int)BBfaces.size());
+    auto endT = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_secondsT = endT-startT;
+    LOGI("OCV-native-lib_elapsedTime-MFtracker: %.3f",elapsed_secondsT);
+    //// *((Mat*)matRects) = Mat(tfaces, true);
+
+}
+
+}
