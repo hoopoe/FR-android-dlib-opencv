@@ -130,7 +130,7 @@ public class CustomDetector extends Detector<Face> {
         SparseArray<Face> faces = mDelegate.detect(frame);
         long end = System.currentTimeMillis();
         long duration = end -start;
-        Log.i(TAG,"FD GMS Exectime = " + duration/1000.0 + " sec");
+        Log.i(TAG,"GMS FD Exectime = " + duration/1000.0 + " sec");
 
         return faces;
     }

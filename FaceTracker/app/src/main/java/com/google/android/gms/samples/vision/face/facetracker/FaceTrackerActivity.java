@@ -57,7 +57,7 @@ import tensorflow.detector.spc.CameraActivityMain;
  * overlay graphics to indicate the position, size, and ID of each face.
  */
 public final class FaceTrackerActivity extends AppCompatActivity {
-    private static final String TAG = "FR";
+    private static final String TAG = "GMS";
 
     private CameraSource mCameraSource = null;
 

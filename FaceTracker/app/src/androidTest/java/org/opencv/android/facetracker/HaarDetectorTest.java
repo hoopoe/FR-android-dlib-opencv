@@ -77,8 +77,14 @@ public class HaarDetectorTest {
         try {
             // get SD Card dir
             String SDCardPath = Environment.getExternalStorageDirectory().toString();
-            new File(SDCardPath + AppResPath).mkdirs();
-            File imageFile = new File(SDCardPath + AppResPath + filename);
+            File saveFolder = new File(SDCardPath + AppResPath);
+            if(!saveFolder.exists())
+                saveFolder.mkdirs();
+
+            // File imageFile = new File(SDCardPath + AppResPath + filename);
+            File imageFile = new File(saveFolder, filename);
+            if (!imageFile.exists())
+                imageFile.createNewFile();
 
             Log.i(TAG,"file= " + imageFile);
             Utils.matToBitmap(matImg,bitmap);
