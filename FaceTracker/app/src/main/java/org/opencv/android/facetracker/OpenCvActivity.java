@@ -39,8 +39,7 @@ import java.util.List;//mic
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private static final String TAG = "OCV-Activity";
-    //private static final Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 255, 255);
-    //private static final Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 0, 255);//yellow
+    private static final Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 0, 255);//yellow
     private static final Scalar TRACKER_BOX_COLOR   = new Scalar(0, 0, 255, 255);//blue
     private Mat mRgba;
     private Mat mGray;
@@ -53,27 +52,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     int cameraId = -1;
     long prev = 0;
     int counterF=0;
-
-    //-----------------------
-
-    /** A safe way to get an instance of the Camera object. */
- /*   public static Camera getCameraInstance(){
-        Camera c = null;
-        try {
-            c = Camera.open(); // attempt to get a Camera instance
-        }
-        catch (Exception e) {
-            // Camera is not available (in use or does not exist)
-            Log.i(TAG, "Camera is not availableMIC (in use or does not exist) ->c:"+c.toString());
-            if (c != null) {
-                c.release();
-                c = Camera.open();
-            }
-        }
-        return c; // returns null if camera is unavailable
-    }*/
-
-    //----------------------
+    boolean okThread = false;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
@@ -116,42 +95,14 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         super.onCreate(savedInstanceState);
         Log.d(TAG, "called onCreate");
 
-        ////getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);//commented by mic
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        ////getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);//commented by mic
-
 
         setContentView(R.layout.activity_open_cv);
 
-        /* Permissions for Android 6+
-        ActivityCompat.requestPermissions(OpenCvActivity.this,
-                new String[]{Manifest.permission.CAMERA},
-                1);
-        */
-        // mRelativeLayout = (RelativeLayout)findViewById(R.id.OCVtopLayout);
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.main_surface);
-        /*int w= mOpenCvCameraView.getLayoutParams().width;
-        int h= mOpenCvCameraView.getLayoutParams().height;
-        Log.i(TAG, "Layout_width ->" + w + "Layout_height:" +h);*/
         mOpenCvCameraView.setMaxFrameSize(1920, 1080);//1080p: 1920x1080
         mOpenCvCameraView.enableFpsMeter();
-        //------------------------------------------------------
 
-        // Create an instance of Camera
-      /*  mCamera = getCameraInstance();//issue with samsung s3 neo & huawei y52
-                                      //Calling Camera.open() throws an exception if the camera is already in use by another application
-
-        Camera.Parameters params = mCamera.getParameters();
-        List<Camera.Size> sizes = params.getSupportedPreviewSizes();
-        for (int i=0; i<sizes.toArray().length; i++) {
-            Log.i(TAG, "Supported preview size: %i-th item ->" + i + "width:" + sizes.get(i).width +"height"+ sizes.get(i).height);
-        }
-        int width=sizes.get(0).width;
-        int height=sizes.get(0).height;
-        Log.i(TAG, "maxWidth ->"+width+"maxHeight:"+height );
-
-        mOpenCvCameraView.setMaxFrameSize(sizes.get(0).width, sizes.get(0).height);*/
-        //-------------------------------------------------
 
         // what are the following used for?
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
@@ -196,7 +147,6 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         super.onResume();
         if (!OpenCVLoader.initDebug()) {
             Log.d(TAG, "OpenCV library not found");
-            //OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
             OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         } else {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
@@ -210,6 +160,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mOpenCvCameraView.disableView();
     }
 
+    private Rect[] detectedFacesArray = {};
+    private Rect[] trackedFacesArray = {};
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Log.d(TAG, "called onCameraFrame");
@@ -228,26 +180,45 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         prev = currentime;
 
 
-        MatOfRect faces = new MatOfRect();
+        final MatOfRect detectedFaces = new MatOfRect();
+        final MatOfRect trackedFaces = new MatOfRect();
 
         counterF++;
         Log.i(TAG,"#frame:"+ counterF);
 
-        hd.OCvDetect(mRgba, faces);
+        if(!okThread) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    okThread=true;
+                    hd.OCvDetect(mRgba, detectedFaces);
+                    if(!detectedFaces.empty()) {
+                        detectedFacesArray = detectedFaces.toArray();
+                       /* hd.OCvTrack(mRgba, detectedFaces);
+                        trackedFacesArray = detectedFaces.toArray();*/
+                    }
 
-        //compute the time to drawing rectangles
-        long startD = SystemClock.currentThreadTimeMillis();//Returns milliseconds running in the current thread.
-
-        Rect[] facesArray = faces.toArray();
-        Log.i(TAG, "facesArray.length (trackedFaces):"+facesArray.length);
-        for (int i = 0; i < facesArray.length; i++) {
-            Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), TRACKER_BOX_COLOR, 3);
-            Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
-                    new Scalar(255, 0, 0, 255), 3);
+                    okThread=false;
+                }
+            }).start();
         }
 
-        long delta = SystemClock.currentThreadTimeMillis() - startD;//msec
-        Log.i(TAG,"OpenCVActivity_elapsedTime4Drawing = " + delta/1000.0 + "[sec]");//elapsed time in seconds
+        if(detectedFacesArray.length>0) {
+            for (int i = 0; i < detectedFacesArray.length; i++) {
+                Imgproc.rectangle(mRgba, detectedFacesArray[i].tl(), detectedFacesArray[i].br(), DETECT_BOX_COLOR, 3);
+            }
+        }
+
+      /*  if(trackedFacesArray.length>0) {
+            for (int i = 0; i < trackedFacesArray.length; i++) {
+                Imgproc.rectangle(mRgba, trackedFacesArray[i].tl(), trackedFacesArray[i].br(), TRACKER_BOX_COLOR, 3);
+            }
+        }*/
+
+        Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
+                    new Scalar(255, 0, 0, 255), 3);
+
+
 
 
         return mRgba;

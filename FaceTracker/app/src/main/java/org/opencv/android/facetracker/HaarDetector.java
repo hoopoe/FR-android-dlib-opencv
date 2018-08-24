@@ -21,10 +21,19 @@ public class HaarDetector {
         loadResources();
     }
 
+   /* public void OCvDetect(Mat imageGray, MatOfRect faces) {
+        OpenCVdetector(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
+    }*/
+
     public void OCvDetect(Mat imageGray, MatOfRect faces) {
         OpenCVdetector(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
     }
 
+    public void OCvTrack(Mat imageGray, MatOfRect faces) {
+        OpenCVtracker(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
+    }
+
     private native void OpenCVdetector(long imageGray, long faces);
+    private native void OpenCVtracker(long imageGray, long faces);
     private native void loadResources();
 }

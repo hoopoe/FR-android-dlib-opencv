@@ -20,6 +20,11 @@ using namespace cv;
 extern "C"
 {
 
+vector<Rect> BBfaces= {};//detectedFaces
+vector<Rect> tfaces= {};//trackedFaces
+
+
+
 JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
                                                                 jlong inputAddrMat, jlong matRects);
@@ -46,11 +51,6 @@ struct byArea {
         return a.width * a.height < b.width * b.height;
     }
 };
-
-int SKIPPED_FRAMES = 15;
-int counter = 0;
-////vector<Rect> tfaces= {};
-vector<Rect> oldFaces= {};
 
 
 //New HAAR detection function to reduce false detection
@@ -103,12 +103,9 @@ Java_org_opencv_android_facetracker_HaarDetector_loadResources(JNIEnv *env, jobj
 }
 
 
-//Face Tracking
-// create a tracker object
+// Opencv Tracker creation
 Ptr<Tracker> tracker= TrackerMedianFlow::create();
 
-//Opencv Tracker
-// create multitracker
 MultiTracker trackers;//This class is used to track multiple objects using the specified tracker algorithm.
 MultiTracker* mytrackers=NULL;
 
@@ -142,75 +139,75 @@ inline cv::Ptr<cv::Tracker> createTrackerByName(cv::String name) {
     return tracker;
 }
 
+
+//tracker initialization
+MultiTracker trackerInit(Mat &Rgb, vector<Rect> &faces,String &trackingAlg){
+    for (size_t i = 0; i <faces.size(); i++)
+    {
+
+        //Tracker initialization
+        algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
+        trackedFaces.push_back(faces[i]);
+        rectangle(Rgb, faces.at(i), Scalar(255,255,0), 4, 8, 0);//Draw detectedFaces (YELLOW)
+    } // end for
+    firstTime = false;
+    trackers.add(algorithms,Rgb,trackedFaces);
+
+    return trackers;
+}
+
+
+// Get tracked object
+vector<Rect> GetTrackedOBJ(MultiTracker& trackers,cv::Mat& frame, cv::Scalar& color)
+{
+    char strID[200];
+    int i;
+    for (i = 0; i < (int)trackers.getObjects().size(); i++)
+    {
+        tfaces.push_back(trackers.getObjects().at(i));
+    }
+    return tfaces;
+}
+
+
 JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
                                                                 jlong inputAddrMat, jlong matRects) {
     Mat &origImg = *((Mat *) inputAddrMat);
     Mat mGray;
-    vector<Rect> BBfaces;//, oldFaces;
+
+    auto start_timeD = std::chrono::high_resolution_clock::now();
+
+    BBfaces = detectRF(origImg);//new_version with HSV conversion
+    //BBfaces = detect(origImg);//new_version with HSV conversion
+    LOGI("#detectedFaces: %i",(int)BBfaces.size());
+
+    auto end_timeD = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_seconds_onlyDet = end_timeD-start_timeD;
+    LOGI("OCV-native-lib_elapsedTime-detectONLY: %.3f",elapsed_seconds_onlyDet);
+
+    *((Mat*)matRects) = Mat(BBfaces, true);
+}
+
+
+JNIEXPORT void JNICALL
+Java_org_opencv_android_facetracker_HaarDetector_OpenCVtracker(JNIEnv *env, jclass instance,
+                                                               jlong inputAddrMat, jlong matRects) {
+    Mat &origImg = *((Mat *) inputAddrMat);
+
+    vector<Rect> BBfaces = *((Mat *) matRects);//, oldFaces;
     Scalar color = Scalar(0,0,255);//blue
-    auto start = std::chrono::high_resolution_clock::now();
-
-    counter++;
-    if((counter==1) || (counter % SKIPPED_FRAMES ==0)) {
-        BBfaces = detectRF(origImg);//new_version with HSV conversion
-        LOGI("#detectedFaces: %i != #trackedFaces: %i",(int)BBfaces.size(),(int)trackers.getObjects().size());
-        if(BBfaces.size()>0) {
-            //clear faces history if other faces are detected
-            oldFaces.clear();
-
-            //check for the variation of the detected faces number
-            if(BBfaces.size()!=trackers.getObjects().size())
-            {
-                LOGI("#detectedFaces: %i != #oldFaces: %i",(int)BBfaces.size(),(int)oldFaces.size());
-                vector<Rect2d> newTrackedFaces;
-
-                algorithms.clear();
-                trackedFaces.clear();
-                mytrackers=trackers.create();
-                trackers=*mytrackers;
-
-                for (size_t i = 0; i <BBfaces.size(); i++)
-                {
-                    //Tracker initialization
-                    algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
-                    newTrackedFaces.push_back(BBfaces[BBfaces.size()-1-i]);//add last detected faces
-                    rectangle(origImg, newTrackedFaces.at(i), Scalar(0,255,0), 4, 8, 0);//controllare
-                }
-                trackers.add(algorithms,origImg,newTrackedFaces);
-                newTrackedFaces.clear();
-
-            }//if(BBfaces.size()!=trackers.targetNum)
-
-            //create history
-            for (size_t i = 0; i < BBfaces.size(); i++) {
-                oldFaces.push_back(BBfaces.at(i));
-            }
-            LOGI("#oldFaces: %i, #realFaces: %i",(int)oldFaces.size(), (int)BBfaces.size());
-            //----------------------------------------
-        }
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    LOGI("OCV-native-lib_elapsedTime-detectRF: %.3f",elapsed_seconds);
 
     auto startT = std::chrono::high_resolution_clock::now();
+
     //Face tracking
     if(firstTime)
     {
         auto startI = std::chrono::high_resolution_clock::now();
-        for (size_t i = 0; i <oldFaces.size(); i++)
-        {
-            foundFaces =true;
 
-            //Tracker initialization
-            algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
-            trackedFaces.push_back(oldFaces[i]);
-            rectangle(origImg, oldFaces.at(i), Scalar(255,255,0), 4, 8, 0);//Draw detectedFaces (YELLOW)
-        } // end for
-        firstTime = false;
-        trackers.add(algorithms,origImg,trackedFaces);
+        //Tracker initialization
+        trackers = trackerInit(origImg,BBfaces,trackingAlg);
+
         auto endI = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_secondsI = endI-startI;
         LOGI("OCV-native-lib_elapsedTime_Initialization: %.3f",elapsed_secondsI);
@@ -218,41 +215,27 @@ Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jcl
     else
     {
         auto startU = std::chrono::high_resolution_clock::now();
+
         updateOK = trackers.update(origImg);
 
         //get Bounding Boxes of the tracked faces
         if(updateOK)
         {
-            int i;
-            for (i = 0; i < (int)trackers.getObjects().size(); i++) {
-                rectangle(origImg, trackers.getObjects().at(i), color, 4, 8, 0);
-            }
+            //DrawTrackedOBJ(trackers,origImg,color);
+            tfaces = GetTrackedOBJ(trackers,origImg,color);
+            LOGI("updateOK: %i",(int)updateOK);
         }
-        else{
-            LOGI("updateOK: %i -> New detection & initialization",(int)updateOK);
-
-            BBfaces = detectRF(origImg);//cerco solo nella regione della faccia che non  è stata aggiornata!!!
+        else {
+            LOGI("updateOK: %i -> New detection & initialization", (int) updateOK);
 
             //remove all trackers
-            algorithms.clear();
+         /*   algorithms.clear();
             trackedFaces.clear();
-            mytrackers=trackers.create();
-            trackers=*mytrackers;
+            mytrackers = trackers.create();
+            trackers = *mytrackers;*/
 
             //start a new tracker initialization
             firstTime=true;
-
-            if(BBfaces.size()>0) {
-                oldFaces.clear();
-                //create NEW history
-                for (size_t i = 0; i < BBfaces.size(); i++) {
-                    oldFaces.push_back(BBfaces.at(i));
-                    rectangle(origImg, oldFaces.at(i), Scalar(255, 255, 0), 4, 8,
-                              0);//Draw detectedFaces (YELLOW)
-                }
-                LOGI("NEW history-> #oldFaces: %i, NEW detection-> #realFaces: %i",
-                     (int) oldFaces.size(), (int) BBfaces.size());
-            }//if(BBfaces.size()>0)
         }
 
         auto endU = std::chrono::high_resolution_clock::now();
@@ -260,12 +243,13 @@ Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jcl
         LOGI("OCV-native-lib_elapsedTime_Updating: %.3f",elapsed_secondsU);
     }//else firstTime
 
-    LOGI("oldfaces_returned: %i & BBfaces_returned: %i",(int)oldFaces.size(), (int)BBfaces.size());
     auto endT = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_secondsT = endT-startT;
     LOGI("OCV-native-lib_elapsedTime-MFtracker: %.3f",elapsed_secondsT);
-    //// *((Mat*)matRects) = Mat(tfaces, true);
 
+
+    *((Mat*)matRects) = Mat(tfaces, true);
 }
+
 
 }
