@@ -53,6 +53,17 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     long prev = 0;
     int counterF=0;
     boolean okThread = false;
+    boolean okThreadT = false;
+    int dn = 0;
+    int tn = 0;
+    int numThread=0;
+    boolean FirstTime = true;
+    boolean newFaceFound = false;
+
+
+
+   // public static MatOfRect detectedFaces = new MatOfRect();//No
+
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
@@ -185,7 +196,6 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
         counterF++;
         Log.i(TAG,"#frame:"+ counterF);
-
         if(!okThread) {
             new Thread(new Runnable() {
                 @Override
@@ -194,8 +204,11 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                     hd.OCvDetect(mRgba, detectedFaces);
                     if(!detectedFaces.empty()) {
                         detectedFacesArray = detectedFaces.toArray();
-                       /* hd.OCvTrack(mRgba, detectedFaces);
-                        trackedFacesArray = detectedFaces.toArray();*/
+                        dn=detectedFacesArray.length;
+                        Log.i(TAG,"#detectedFaces:"+dn);
+                        if(dn>0){newFaceFound = true;}
+                       //// hd.OCvTrack(mRgba, detectedFaces);
+                       //// trackedFacesArray = detectedFaces.toArray();
                     }
 
                     okThread=false;
@@ -209,11 +222,61 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             }
         }
 
-      /*  if(trackedFacesArray.length>0) {
-            for (int i = 0; i < trackedFacesArray.length; i++) {
-                Imgproc.rectangle(mRgba, trackedFacesArray[i].tl(), trackedFacesArray[i].br(), TRACKER_BOX_COLOR, 3);
+
+        //=========================
+        Log.i(TAG,"#detectedFaces:"+detectedFacesArray.length);
+
+        //if(!okThreadT && detectedFacesArray.length>0) {
+        if(!okThreadT) {
+            for (int i=0;i<detectedFacesArray.length; i++) {
+                Log.i(TAG, "detectedFaces (x,y,w,h): " +detectedFacesArray[i]);
             }
-        }*/
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    okThreadT = true;
+
+                    trackedFaces.release();
+                    Log.i(TAG, "trackedFaces is empty BEFORE:" + trackedFaces.empty());
+                  //  trackedFacesArray=null;
+                    Log.i(TAG, "#detectedFacesArray BEFORE: " +detectedFacesArray.length);
+
+                    //if(FirstTime) {
+                    if(newFaceFound) {
+                        trackedFaces.fromArray(detectedFacesArray);//here trackedFaces is populated
+                    }
+                    else{
+                        trackedFaces.fromArray(trackedFacesArray);//here trackedFaces is populated
+                    }
+
+                    //if (!okThread){
+                    if (!trackedFaces.empty()){
+                        Log.i(TAG, "trackedFaces is not empty! -> start Tracking thread");
+                        hd.OCvTrack(mRgba, trackedFaces);
+                        trackedFacesArray = trackedFaces.toArray();
+                        tn = trackedFacesArray.length;
+                        Log.i(TAG, "#trackedFaces_insideThread:" + tn);
+                        if(tn>0) {
+                            //FirstTime = false;
+                            newFaceFound = false;
+                        }
+                    }
+
+                    okThreadT = false;
+                    Log.i(TAG, "Stop Tracking thread");
+                }
+            }).start();
+        }
+
+
+        //=========================
+
+        if(trackedFacesArray.length>0) {
+            for (int i = 0; i < trackedFacesArray.length; i++) {
+                Imgproc.rectangle(mRgba, trackedFacesArray[i].tl(), trackedFacesArray[i].br(), TRACKER_BOX_COLOR, 13);
+            }
+        }
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
                     new Scalar(255, 0, 0, 255), 3);
