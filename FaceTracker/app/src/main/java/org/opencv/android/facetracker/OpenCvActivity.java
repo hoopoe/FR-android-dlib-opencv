@@ -35,12 +35,16 @@ import com.google.android.gms.samples.vision.face.facetracker.R;
 import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.vision.face.Face;
 import java.util.List;//mic
+//import java.io.IOException;
+//import com.digi.android.system.cpu.CPUManager;
+
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private static final String TAG = "OCV-Activity";
     private static final Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 0, 255);//yellow
     private static final Scalar TRACKER_BOX_COLOR   = new Scalar(0, 0, 255, 255);//blue
+    private static final Scalar cyan_BOX_COLOR   = new Scalar(0, 255, 255, 255);//blue
     private Mat mRgba;
     private Mat mGray;
     private CameraBridgeViewBase mOpenCvCameraView;
@@ -59,11 +63,9 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     int numThread=0;
     boolean FirstTime = true;
     boolean newFaceFound = false;
+    //volatile boolean newFaceFound = false;
 
-
-
-   // public static MatOfRect detectedFaces = new MatOfRect();//No
-
+   // public static MatOfRect detectedFaces;//uncommented here
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
@@ -74,14 +76,15 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                     Log.d(TAG, "OpenCV loaded successfully");
                     // Load native library after(!) OpenCV initialization
                     hd.loadNative();
-
-                    mJavaDetector = new CascadeClassifier("/sdcard/Download/haarcascade_frontalface_default.xml");
-                    if (mJavaDetector.empty()) {
-                        Log.e(TAG, "Failed to load Java cascade classifier ");
-                        mJavaDetector = null;
-                    } else
-                        Log.i(TAG, "Loaded Java cascade classifier!!! " );
-
+                   //uncommented here================================
+                   /* try{
+                        detectedFaces = new MatOfRect();
+                        Log.i(TAG, "detectedFaces Creation: ");
+                    }catch (Exception e) {
+                        e.printStackTrace();
+                        Log.e(TAG, "Failed detectedFace creation: " + e);
+                    }*/
+                    //==============================
                     mOpenCvCameraView.enableView();
                 }
                 break;
@@ -93,9 +96,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         }
     };
 
-    public OpenCvActivity() {
-        Log.i(TAG, "Instantiated " + this.getClass());
-    }
+    public OpenCvActivity() { Log.i(TAG, "Instantiated " + this.getClass()); }
 
 
     /**
@@ -191,7 +192,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         prev = currentime;
 
 
-        final MatOfRect detectedFaces = new MatOfRect();
+        final MatOfRect detectedFaces = new MatOfRect();//commented here
         final MatOfRect trackedFaces = new MatOfRect();
 
         counterF++;
@@ -201,62 +202,70 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                 @Override
                 public void run() {
                     okThread=true;
+
+                    Log.i(TAG, "Detection thread_START @ #frame:"+counterF);
+                   // detectedFaces.release();
                     hd.OCvDetect(mRgba, detectedFaces);
                     if(!detectedFaces.empty()) {
+                      /*  newFaceFound = true;
+                        //Log.i(TAG, "A new Face is found -> "+newFaceFound+" @ #frame:"+counterF);
+                        detectedFacesArray = detectedFaces.toArray();*/
+
+
+                       // detectedFacesArray=null;
                         detectedFacesArray = detectedFaces.toArray();
                         dn=detectedFacesArray.length;
                         Log.i(TAG,"#detectedFaces:"+dn);
-                        if(dn>0){newFaceFound = true;}
-                       //// hd.OCvTrack(mRgba, detectedFaces);
-                       //// trackedFacesArray = detectedFaces.toArray();
+                        if(dn>0){
+                            newFaceFound = true;
+                            Log.i(TAG, "A new Face is found!");}
+
                     }
 
                     okThread=false;
+                    Log.i(TAG, "Detection thread_END @ #frame:"+counterF);
                 }
             }).start();
         }
 
-        if(detectedFacesArray.length>0) {
-            for (int i = 0; i < detectedFacesArray.length; i++) {
-                Imgproc.rectangle(mRgba, detectedFacesArray[i].tl(), detectedFacesArray[i].br(), DETECT_BOX_COLOR, 3);
+       // if(!detectedFaces.empty()) {
+            if (detectedFacesArray.length > 0) {
+                for (Rect rect : detectedFacesArray) {
+                    Imgproc.rectangle(mRgba, rect.tl(), rect.br(), DETECT_BOX_COLOR, 3);
+                }
             }
-        }
+      //  }
 
 
         //=========================
-        Log.i(TAG,"#detectedFaces:"+detectedFacesArray.length);
+        Log.i(TAG,"#detectedFaces_fuoriTT:"+detectedFacesArray.length+" @ #frame:"+counterF);
 
-        //if(!okThreadT && detectedFacesArray.length>0) {
-        if(!okThreadT) {
-            for (int i=0;i<detectedFacesArray.length; i++) {
-                Log.i(TAG, "detectedFaces (x,y,w,h): " +detectedFacesArray[i]);
-            }
-
+     /*   if(!okThreadT) {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
                     okThreadT = true;
-
+                    Log.i(TAG, "Tracking thread_START @ #frame:"+counterF);
                     trackedFaces.release();
-                    Log.i(TAG, "trackedFaces is empty BEFORE:" + trackedFaces.empty());
-                  //  trackedFacesArray=null;
-                    Log.i(TAG, "#detectedFacesArray BEFORE: " +detectedFacesArray.length);
 
-                    //if(FirstTime) {
                     if(newFaceFound) {
+                        Log.i(TAG, "New faces found -> trackedFaces is populated using detectedFace @ #frame:"+counterF);
                         trackedFaces.fromArray(detectedFacesArray);//here trackedFaces is populated
                     }
                     else{
+                        Log.i(TAG, "trackedFaces is populated using trackedFaces @ #frame:"+counterF);
                         trackedFaces.fromArray(trackedFacesArray);//here trackedFaces is populated
                     }
-
-                    //if (!okThread){
                     if (!trackedFaces.empty()){
-                        Log.i(TAG, "trackedFaces is not empty! -> start Tracking thread");
                         hd.OCvTrack(mRgba, trackedFaces);
                         trackedFacesArray = trackedFaces.toArray();
                         tn = trackedFacesArray.length;
-                        Log.i(TAG, "#trackedFaces_insideThread:" + tn);
+                        Log.i(TAG, "#trackeFacesArray_insideThread: " +tn);
+                        //to cancel----------------------------------------------------
+                        for (int i=0;i<tn; i++) {
+                            Log.i(TAG, "CONTROLLO -> trackedFaces (x,y,w,h): " +trackedFacesArray[i]+" @ #frame:"+counterF);
+                        }
+                        //-------------------------------------------------------------
                         if(tn>0) {
                             //FirstTime = false;
                             newFaceFound = false;
@@ -264,19 +273,15 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                     }
 
                     okThreadT = false;
-                    Log.i(TAG, "Stop Tracking thread");
+                    Log.i(TAG, "Tracking thread_END @ #frame:"+counterF);
                 }
             }).start();
         }
 
 
-        //=========================
-
-        if(trackedFacesArray.length>0) {
-            for (int i = 0; i < trackedFacesArray.length; i++) {
-                Imgproc.rectangle(mRgba, trackedFacesArray[i].tl(), trackedFacesArray[i].br(), TRACKER_BOX_COLOR, 13);
-            }
-        }
+        for (Rect rect : trackedFacesArray) {
+            Imgproc.rectangle(mRgba, rect.tl(), rect.br(),  TRACKER_BOX_COLOR, 13);
+        }*/
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
                     new Scalar(255, 0, 0, 255), 3);
