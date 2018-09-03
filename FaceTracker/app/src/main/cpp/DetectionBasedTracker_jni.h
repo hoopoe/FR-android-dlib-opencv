@@ -1,6 +1,3 @@
-//
-// Created by alorusso on 12/07/18.
-//
 #include <jni.h>
 
 #ifndef FACETRACKER_DETECTIONBASEDTRACKER_JNI_H

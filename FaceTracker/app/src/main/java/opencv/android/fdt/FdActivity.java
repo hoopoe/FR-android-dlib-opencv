@@ -30,7 +30,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 // To switch activity
-import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
+import org.opencv.android.facetracker.OpenCvActivity;
+//import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.samples.vision.face.facetracker.R;
 
 import tensorflow.detector.spc.CameraActivityMain;
@@ -142,7 +143,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         mBtnBack.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent myIntent = new Intent(FdActivity.this, FaceTrackerActivity.class);
+                Intent myIntent = new Intent(FdActivity.this, OpenCvActivity.class);
                 FdActivity.this.startActivity(myIntent);
             }
         });
@@ -172,7 +173,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         super.onResume();
         if (!OpenCVLoader.initDebug()) {
             Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         } else {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);

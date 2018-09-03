@@ -36,9 +36,12 @@ before_install:
   - echo $(ant -version)
 
 before_script:
-  - wget https://github.com/opencv/opencv/releases/download/3.4.1/opencv-3.4.1-android-sdk.zip
-  - unzip -q opencv-3.4.1-android-sdk.zip
-  - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
+#  - wget https://github.com/opencv/opencv/releases/download/3.4.1/opencv-3.4.1-android-sdk.zip
+  - wget https://github.com/chaoyangnz/opencv3-android-sdk-with-contrib/archive/master.zip
+#  - unzip -q opencv-3.4.1-android-sdk.zip
+  - unzip -q master.zip
+#  - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
+  - export OPENCV_ANDROID_SDK=$(pwd)/opencv3-android-sdk-with-contrib-master/OpenCV-android-sdk
   - git clone https://github.com/tensorflow/tensorflow.git
   - export TF_SRC_ROOT=$(pwd)/tensorflow
 

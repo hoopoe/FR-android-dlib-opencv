@@ -6,38 +6,64 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
 import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 
+import android.app.Activity;
+import android.content.Context;
 import android.hardware.Camera;
+import android.hardware.Camera.CameraInfo;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.content.Intent;
+import android.util.SparseArray;
+import android.view.Display;
+import android.view.Surface;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 
-// to switch between activities
 import com.google.android.gms.samples.vision.face.facetracker.R;
-import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
-
+import opencv.android.fdt.FdActivity;
+// import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
+import com.google.android.gms.vision.face.Face;
+import java.util.List;//mic
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private static final String TAG = "OCV-Activity";
-    private static final Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 255, 255);
+    private static final Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 0, 255);//yellow
+    private static final Scalar TRACKER_BOX_COLOR   = new Scalar(0, 0, 255, 255);//blue
     private Mat mRgba;
     private Mat mGray;
     private CameraBridgeViewBase mOpenCvCameraView;
+    private RelativeLayout       mRelativeLayout;
+    private Camera               mCamera;
     private CascadeClassifier    mJavaDetector;
     HaarDetector hd = new HaarDetector();
     Button mBtnSwitch;
-    private long prev = 0;
+    int cameraId = -1;
+    long prev = 0;
+    int counterF=0;
+    boolean okThread = false;
+    boolean okThreadT = false;
+    int dn = 0;
+    int tn = 0;
+    int numThread=0;
+    boolean FirstTime = true;
+    boolean newFaceFound = false;
+
+
+
+   // public static MatOfRect detectedFaces = new MatOfRect();//No
 
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
@@ -81,24 +107,18 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         super.onCreate(savedInstanceState);
         Log.d(TAG, "called onCreate");
 
-        // getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN); //???
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        // getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN); //???
 
         setContentView(R.layout.activity_open_cv);
 
-        /* Permissions for Android 6+
-        ActivityCompat.requestPermissions(OpenCvActivity.this,
-                new String[]{Manifest.permission.CAMERA},
-                1);
-        */
-
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.main_surface);
+        mOpenCvCameraView.setMaxFrameSize(1920, 1080);//1080p: 1920x1080
+        mOpenCvCameraView.enableFpsMeter();
+
+
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
-        //mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
-
-
+        Log.i(TAG,"#processor:"+Runtime.getRuntime().availableProcessors());
         onListenButton();
     }
 
@@ -109,7 +129,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mBtnSwitch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent myIntent = new Intent(OpenCvActivity.this, FaceTrackerActivity.class);
+                Intent myIntent = new Intent(OpenCvActivity.this, FdActivity.class);
                 OpenCvActivity.this.startActivity(myIntent);
             }
         });
@@ -138,7 +158,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         super.onResume();
         if (!OpenCVLoader.initDebug()) {
             Log.d(TAG, "OpenCV library not found");
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_3_0, this, mLoaderCallback);
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         } else {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
@@ -151,6 +171,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mOpenCvCameraView.disableView();
     }
 
+    private Rect[] detectedFacesArray = {};
+    private Rect[] trackedFacesArray = {};
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Log.d(TAG, "called onCameraFrame");
@@ -158,34 +180,110 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
-        long currentime = 0;
 
-        Log.i(TAG,"In onCameraFrame");
-
-        currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
+        long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
         Log.i(TAG,"framerate = " + 1000.0/(currentime-prev) + " fps");
+        Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
+
+        //compute how long time it's displayed the image----------
+        Log.i(TAG,"1/framerate = " + (currentime-prev)/1000.0 + " [sec]");
+        //--------------------------------------------------------
         prev = currentime;
 
-        Log.i(TAG,"WIDTH = " + mRgba.width() + "   COLS = " + mRgba.cols());
-        Log.i(TAG,"HEIGHT = " + mRgba.height() + "   ROWS = " + mRgba.rows());
 
+        final MatOfRect detectedFaces = new MatOfRect();
+        final MatOfRect trackedFaces = new MatOfRect();
 
+        counterF++;
+        Log.i(TAG,"#frame:"+ counterF);
+        if(!okThread) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    okThread=true;
+                    hd.OCvDetect(mRgba, detectedFaces);
+                    if(!detectedFaces.empty()) {
+                        detectedFacesArray = detectedFaces.toArray();
+                        dn=detectedFacesArray.length;
+                        Log.i(TAG,"#detectedFaces:"+dn);
+                        if(dn>0){newFaceFound = true;}
+                       //// hd.OCvTrack(mRgba, detectedFaces);
+                       //// trackedFacesArray = detectedFaces.toArray();
+                    }
 
-        MatOfRect faces = new MatOfRect();
-
-        long start = System.currentTimeMillis();
-        hd.OCvDetect(mGray, faces);
-        //mJavaDetector.detectMultiScale(mGray, faces, 1.1, 3, 0,new Size(), new Size());
-        long end = System.currentTimeMillis();
-        long duration = end -start;
-        Log.i(TAG,"FD OCV Exectime = " + duration/1000.0 + " sec");
-
-
-        Rect[] facesArray = faces.toArray();
-        for (int i = 0; i < facesArray.length; i++) {
-            Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), DETECT_BOX_COLOR, 3);
-            Log.i(TAG,"face "+i + "= "+ facesArray[i].tl()+"  "+ facesArray[i].br());
+                    okThread=false;
+                }
+            }).start();
         }
+
+        if(detectedFacesArray.length>0) {
+            for (int i = 0; i < detectedFacesArray.length; i++) {
+                Imgproc.rectangle(mRgba, detectedFacesArray[i].tl(), detectedFacesArray[i].br(), DETECT_BOX_COLOR, 3);
+            }
+        }
+
+
+        //=========================
+        Log.i(TAG,"#detectedFaces:"+detectedFacesArray.length);
+
+        //if(!okThreadT && detectedFacesArray.length>0) {
+        if(!okThreadT) {
+            for (int i=0;i<detectedFacesArray.length; i++) {
+                Log.i(TAG, "detectedFaces (x,y,w,h): " +detectedFacesArray[i]);
+            }
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    okThreadT = true;
+
+                    trackedFaces.release();
+                    Log.i(TAG, "trackedFaces is empty BEFORE:" + trackedFaces.empty());
+                  //  trackedFacesArray=null;
+                    Log.i(TAG, "#detectedFacesArray BEFORE: " +detectedFacesArray.length);
+
+                    //if(FirstTime) {
+                    if(newFaceFound) {
+                        trackedFaces.fromArray(detectedFacesArray);//here trackedFaces is populated
+                    }
+                    else{
+                        trackedFaces.fromArray(trackedFacesArray);//here trackedFaces is populated
+                    }
+
+                    //if (!okThread){
+                    if (!trackedFaces.empty()){
+                        Log.i(TAG, "trackedFaces is not empty! -> start Tracking thread");
+                        hd.OCvTrack(mRgba, trackedFaces);
+                        trackedFacesArray = trackedFaces.toArray();
+                        tn = trackedFacesArray.length;
+                        Log.i(TAG, "#trackedFaces_insideThread:" + tn);
+                        if(tn>0) {
+                            //FirstTime = false;
+                            newFaceFound = false;
+                        }
+                    }
+
+                    okThreadT = false;
+                    Log.i(TAG, "Stop Tracking thread");
+                }
+            }).start();
+        }
+
+
+        //=========================
+
+        if(trackedFacesArray.length>0) {
+            for (int i = 0; i < trackedFacesArray.length; i++) {
+                Imgproc.rectangle(mRgba, trackedFacesArray[i].tl(), trackedFacesArray[i].br(), TRACKER_BOX_COLOR, 13);
+            }
+        }
+
+        Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
+                    new Scalar(255, 0, 0, 255), 3);
+
+
+
+
         return mRgba;
     }
 

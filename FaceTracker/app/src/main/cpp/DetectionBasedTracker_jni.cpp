@@ -52,7 +52,7 @@ public:
         LOGD("CALLED DetectMultiScale");
         LOGD("CascadeDetectorAdapter::Detect: NUM FRAME = %d", numframe++);
 
-        LOGD("CascadeDetectorAdapter::Detect: NUM of faces = %d", objects.size());
+        LOGD("CascadeDetectorAdapter::Detect: NUM of faces = %zu", objects.size());
         LOGD("CascadeDetectorAdapter::Detect: END");
     }
 
@@ -179,7 +179,7 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
         ((DetectorAgregator *) thiz)->tracker->process(*((Mat *) imageGray));
         ((DetectorAgregator *) thiz)->tracker->getObjects(RectFaces);
 
-        LOGD("DetectionBasedTracker_nativeDetect NativeRectFaces = %d", RectFaces.size());
+        LOGD("DetectionBasedTracker_nativeDetect NativeRectFaces = %zu", RectFaces.size());
 
         // if no faces from native detector
         if (firstDetection == 0) {
@@ -190,7 +190,7 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
 
                     face_cascade.detectMultiScale(*((Mat *) imageGray), RectFaces, 1.1, 3, 0,
                                                   Size(0, 0), Size(1000, 1000));
-                    LOGD("DetectionBasedTracker_nativeDetect AFTER MY detection: RectFaces size = %d",RectFaces.size());
+                    LOGD("DetectionBasedTracker_nativeDetect AFTER MY detection: RectFaces size = %zu",RectFaces.size());
                     prevRectFaces = RectFaces;
 
                 } else  RectFaces = prevRectFaces; // there were previous face detected
