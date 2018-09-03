@@ -23,7 +23,11 @@ extern "C"
 vector<Rect> BBfaces= {};//detectedFaces
 vector<Rect> tfaces= {};//trackedFaces
 
-
+//================================
+vector<Rect> BBfaces_prev= {};
+int SKIPPED_FRAMES = 15;
+int counter = 0;
+//===============================
 
 JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
@@ -50,7 +54,7 @@ struct byArea {
 
 
 //New HAAR detection function to reduce false detection
-std::vector<Rect> detectRF(Mat &gray) {
+/*std::vector<Rect> detectRF(Mat &gray) {
 
     //new part----------------------------------------
     Mat img_hsv,s_img;
@@ -72,6 +76,35 @@ std::vector<Rect> detectRF(Mat &gray) {
     std::vector<Rect> realfaces = {};
     //face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
     face_cascade.detectMultiScale(s_img, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
+    int i=0;
+    for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ ) {
+        LOGI("weights[%i]:%f, sizeFace[i]: %i", i, weights[i], faces[i].width);
+        if (weights[i] >= TH_weight)//Good empirical threshold values: 5-7
+        {
+            realfaces.push_back(*r);
+        }
+    }
+    LOGI("#realFaces: %i (TH_weight= %.2f)", (int)realfaces.size(), TH_weight);
+    sort( realfaces.begin(), realfaces.end(), byArea() );
+    return realfaces;
+}*/
+
+
+//New HAAR detection function to reduce false detection (vers.2)
+std::vector<Rect> detectRF(Mat &gray) {
+
+
+    double const TH_weight=5.0;//Good empirical threshold values: 5-7 (INDOOR) - 4.0 (outdoor)
+    //NOTE: The detection range depends on this threshold value.
+    //      By reducing this value, you increase the possibility
+    //      to detect a smaller face even at a longer distance,
+    // but also to have false detections.
+    std::vector<int> reject_levels;
+    std::vector<double> weights;
+
+    std::vector<Rect> faces = {};
+    std::vector<Rect> realfaces = {};
+    face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
     int i=0;
     for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ ) {
         LOGI("weights[%i]:%f, sizeFace[i]: %i", i, weights[i], faces[i].width);
@@ -144,7 +177,7 @@ MultiTracker trackerInit(Mat &Rgb, vector<Rect> &faces,String &trackingAlg){
         //Tracker initialization
         algorithms.push_back(createTrackerByName(trackingAlg));//trackers creation
         trackedFaces.push_back(faces[i]);
-        rectangle(Rgb, faces.at(i), Scalar(255,255,0), 4, 8, 0);//Draw detectedFaces (YELLOW)
+        ////rectangle(Rgb, faces.at(i), Scalar(255,255,0), 4, 8, 0);//Draw detectedFaces (YELLOW)
     } // end for
     firstTime = false;
     trackers.add(algorithms,Rgb,trackedFaces);
@@ -182,7 +215,7 @@ void DrawTrackedOBJ(MultiTracker& trackers,cv::Mat& frame, cv::Scalar& color)
 
 
 
-JNIEXPORT void JNICALL
+/*JNIEXPORT void JNICALL
 Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
                                                                 jlong inputAddrMat, jlong matRects) {
     Mat &origImg = *((Mat *) inputAddrMat);
@@ -191,13 +224,122 @@ Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jcl
     auto start_timeD = std::chrono::high_resolution_clock::now();
 
     BBfaces = detectRF(origImg);//new_version with HSV conversion
-    //BBfaces = detect(origImg);//new_version with HSV conversion
-    LOGI("#detectedFaces: %i",(int)BBfaces.size());
+    //BBfaces = detect(origImg);//old version with more false detections
+    LOGI("#detectedFaces_cpp: %i",(int)BBfaces.size());
+
+    auto end_timeD = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_seconds_onlyDet = end_timeD-start_timeD;
+    LOGI("OCV-native-lib_elapsedTime-detectONLY: %.3f",elapsed_seconds_onlyDet);
+
+    *((Mat*)matRects) = Mat(BBfaces, true);
+}*/
+
+//NEW version (vers.2)
+JNIEXPORT void JNICALL
+Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jclass instance,
+                                                                jlong inputAddrMat, jlong matRects) {
+    Mat &origImg = *((Mat *) inputAddrMat);
+    Mat mGray;
+
+    auto start_timeD = std::chrono::high_resolution_clock::now();
+
+    counter++;
+
+    //The detection is performed on the whole frame every each 2 frame (SKIPPED_FRAMES = 2)
+    //In the other cases, the detection is performed only around the previouse detected faces.
+    if((counter==1) || (counter % SKIPPED_FRAMES ==0)) {
+    //if(counter % SKIPPED_FRAMES ==0) {
+        BBfaces = detectRF(origImg);//vers.2 without HSV conversion
+        LOGI("#detectedFaces_onWHOLEframe: %i", (int) BBfaces.size());
+        BBfaces_prev.clear();
+        //create history
+        for (size_t i = 0; i < BBfaces.size(); i++) {
+            BBfaces_prev.push_back(BBfaces.at(i));
+
+         /*   rectangle(origImg, BBfaces.at(i),
+                      Scalar(255, 255, 255), 18, 8,
+                      0);//bianco
+*/
+        }
+    }
+    else{
+        if(BBfaces_prev.size()>0) {
+            Mat cropI, cropI_;
+            vector<Rect> tmp = {};
+            //int i, j;
+            size_t i,j;
+            for ( i = 0; i < BBfaces_prev.size(); i++) {
+
+
+                //detect faces in ROI around the previously detected faces
+                double s = 0.2;//scale factor
+                Rect2d ROI = BBfaces_prev.at(i);
+                LOGI("controllo_ROI_BEFORE (x,y,w,h): %i %i %i %i", (int) ROI.x, (int) ROI.y,
+                     (int) ROI.width, (int) ROI.height);
+
+                cv::Rect newROI = cv::Rect((int) (ROI.x * (1 - s)), (int) (ROI.y * (1 - s)),
+                                           (int) (ROI.width + ROI.x * 2 * s),
+                                           (int) (ROI.height + ROI.y * 2 * s));
+                LOGI("controllo_newROI_BEFORE (x,y,w,h): %i %i %i %i", (int) newROI.x,
+                     (int) newROI.y, (int) newROI.width, (int) newROI.height);
+
+                //Valid ROI--------------------
+                Rect frameSize = cv::Rect(0, 0, origImg.cols, origImg.rows);
+                if (newROI.x < frameSize.x) {
+                    newROI.width += newROI.x;
+                    newROI.x = frameSize.x;
+                }
+                if (newROI.y < frameSize.y) {
+                    newROI.height += newROI.y;
+                }
+                if (newROI.x + newROI.width > frameSize.width) {
+                    newROI.width = frameSize.width - newROI.x;
+                }
+                if (newROI.y + newROI.height > frameSize.height) {
+                    newROI.height = frameSize.height - newROI.y;
+                }
+                LOGI("controllo_newROI_AFTER (x,y,w,h): %i %i %i %i", newROI.x,
+                      newROI.y, newROI.width, newROI.height);
+                //------------------------------
+
+                cropI = origImg(newROI);
+                tmp = detectRF(cropI);
+                LOGI("#detectedFaces_onROIs: %i", (int) tmp.size());
+
+                if(tmp.size()>0) {
+
+                    //update faces history
+                    BBfaces_prev.clear();
+                    BBfaces.clear();
+                    for (j = 0; j < tmp.size(); j++) {
+                        if (tmp.at(j).width > 0 && tmp.at(j).height > 0) {
+                            BBfaces.push_back(Rect(tmp.at(j).x + newROI.x, tmp.at(j).y + newROI.y,
+                                                   tmp.at(j).width, tmp.at(j).height));
+
+                            BBfaces_prev.push_back(Rect(tmp.at(j).x + newROI.x, tmp.at(j).y + newROI.y,
+                                                        tmp.at(j).width, tmp.at(j).height));
+                            LOGI("controllo_BBfacesTMP (x,y,w,h): %i %i %i %i",
+                                 tmp.at(j).x + newROI.x, tmp.at(j).y + newROI.y,
+                                 tmp.at(j).width, tmp.at(j).height);
+
+                           /* rectangle(origImg, Rect(tmp.at(j).x + newROI.x, tmp.at(j).y + newROI.y,
+                                                    tmp.at(j).width, tmp.at(j).height),
+                                      Scalar(255, 0, 0), 18, 8,
+                                      0);//RED for new detected faces in a ROIs
+                           */
+                        }
+                    }// for (j = 0; j < tmp.size(); j++)
+                }
+
+            }//for
+        }
+    }//else
 
     auto end_timeD = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_seconds_onlyDet = end_timeD-start_timeD;
     LOGI("OCV-native-lib_elapsedTime-detectONLY: %.3f", elapsed_seconds_onlyDet);
 
+    LOGI("OCV-native-lib_#BBfacesRETURNED: %.3f",BBfaces.size());
     *((Mat*)matRects) = Mat(BBfaces, true);
 }
 
@@ -239,6 +381,7 @@ Java_org_opencv_android_facetracker_HaarDetector_OpenCVtracker(JNIEnv *env, jcla
         LOGI("OCV-native-lib_#tfaces: %i",(int)tfaces.size());
 
         updateOK = trackers.update(origImg);
+
         if(updateOK)
         {
             LOGI("updateOK: %i",(int)updateOK);
