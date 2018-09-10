@@ -240,7 +240,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         //=========================
         Log.i(TAG,"#detectedFaces_fuoriTT:"+detectedFacesArray.length+" @ #frame:"+counterF);
 
-     /*   if(!okThreadT) {
+        // /* Michela's comment
+        if(!okThreadT) {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -278,10 +279,9 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             }).start();
         }
 
-
         for (Rect rect : trackedFacesArray) {
             Imgproc.rectangle(mRgba, rect.tl(), rect.br(),  TRACKER_BOX_COLOR, 13);
-        }*/
+        }
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
                     new Scalar(255, 0, 0, 255), 3);

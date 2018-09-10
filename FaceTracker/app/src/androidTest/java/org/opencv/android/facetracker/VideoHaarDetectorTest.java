@@ -28,10 +28,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.FileNotFoundException;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 
-import opencv.android.fdt.DetectionBasedTracker;
 
 import static xdroid.core.Global.getContext;
 import static xdroid.core.Global.getResources;
@@ -40,13 +40,17 @@ import static xdroid.core.Global.getResources;
 
 public class VideoHaarDetectorTest {
 
-    private static final String     TAG = "FD-Test";
+    private static final String     TAG = "FDT-Test";
     private static final Scalar     DETECT_BOX_COLOR   = new Scalar(0, 255, 0, 255);
     private String                  AppPath    = "/myAppFolder/";
     private String                  AppResPath = "/myAppRes/";
-    private String                  videoname  = "v1465.mp4";
-    private String                  outImgName = "/FD-frame";
-    private DetectionBasedTracker   nativeDetect;
+    //private String                  videoname  = "v1465.mp4";
+    private String                  videoname  = "Trellis.mp4";
+    private String                  outImgName = "/FDT-frame";
+    private String                  AppResSDcardDir = "/myAppDataRes/";
+    private CascadeClassifier       mJavaDetector;
+    private String                  AppResTxtFile = "FDT-TestRes.txt";
+    private OutputStreamWriter      fos = null;
 
 
     static {
@@ -69,6 +73,29 @@ public class VideoHaarDetectorTest {
         File videoFile=new File(Environment.getExternalStorageDirectory().getAbsolutePath()+ AppPath + videoname);
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         retriever.setDataSource(getContext(), Uri.parse(videoFile.getAbsolutePath()));
+
+        // Create a dir in SD card to store txt file for test results
+        File newFolder = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + AppResSDcardDir);
+        try {
+            if (!newFolder.exists())
+                newFolder.mkdir();
+        } catch (Exception e) {
+            System.out.println("Exception e: " + e);
+        }
+        File file = new File(newFolder, AppResTxtFile);
+        try {
+            file.createNewFile();
+        } catch (Exception ex) {
+            System.out.println("Exception ex: " + ex);
+        }
+        FileOutputStream fOut = null;
+        try {
+            fOut = new FileOutputStream(file, false); // delete file if it exists
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        if(fOut != null) fos = new OutputStreamWriter(fOut);
+        // end creation result file on SD card
 
         ArrayList<Bitmap> rev=new ArrayList<Bitmap>();
 
@@ -96,10 +123,28 @@ public class VideoHaarDetectorTest {
                 Utils.bitmapToMat(bitmap, matImg); // copy again RGB img in Mat
                 Log.i(TAG, "Number of faces = " + faces.length);
 
-                for (int k=0; k<faces.length; k++)
-                    Imgproc.rectangle(matImg, faces[k].tl(),faces[k].br(), DETECT_BOX_COLOR,3);
+                try {
+                    if (faces.length == 0) {
+                        fos.write(Integer.toString(0) + "," + Integer.toString(0) + "," +
+                                Integer.toString(0) + "," + Integer.toString(0) + ";"+"\n"); // write to file
+                        fos.flush();
+                    }
+                    else {
+                        for (int k = 0; k < faces.length; k++) {
+                            Imgproc.rectangle(matImg, faces[k].tl(), faces[k].br(), DETECT_BOX_COLOR, 3);
+
+                            fos.write(Integer.toString((int) faces[k].tl().x) + "," + Integer.toString((int) faces[k].tl().y) + "," +
+                                    Integer.toString((int) (faces[k].br().x - faces[k].tl().x)) + "," + Integer.toString((int) (faces[k].br().y - faces[k].tl().y)) + ";");
+                            fos.flush();
+                        }
+                        fos.write("\n");
+                    }
+                }catch (FileNotFoundException e) {
+                        System.out.println("Exception e: " + e);
+                }
 
                 Utils.matToBitmap(matImg,bitmap); // convert Mat to bitmap before saving to memory
+
                 rev.add(bitmap); // add to a list of images that will be written all together on memory
                 Log.i(TAG, " frame i = " + i + " added frame =" + j);
             }

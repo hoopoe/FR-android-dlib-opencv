@@ -42,7 +42,7 @@ export OPENCV_ANDROID_SDK=/Users/hoopoe/Tools/OpenCV-android-sdk
 	- copy video file in 'myAppFolder'
    Test images come with the application (they are in the ASSET folder)
    Test results are all in the phone root location in the "myAppRes" folder, created automatically.
-  private static final String TF_OD_API_MODEL_FILE ="file:///android_asset/spc_mobilenet_v3_1x_0.52_cleaned.pb" 
+ 
 
 6. To run "OCV-FTD":
    a) download "OpenCV 3.4.0dev Android SDK with contrib modules" from the following link:
