@@ -33,8 +33,9 @@ export OPENCV_ANDROID_SDK=/Users/hoopoe/Tools/OpenCV-android-sdk
   private static final int MAX_RESULTS = 500;
 
   private static final int TF_OD_API_INPUT_SIZE = 416;
-  
-  private static final String TF_OD_API_MODEL_FILE ="file:///android_asset/spc_mobilenet_v3_1x_0.52_cleaned.pb"
+
+  private static final String TF_OD_API_MODEL_FILE ="file:///android_asset/spc_mobilenet_v3_1x_0.52_cleaned.pb" 
+
 
 5. To execute OpenCV and Google Vision related tests for comparison of results on images and video,
    for video input:
@@ -50,4 +51,7 @@ export OPENCV_ANDROID_SDK=/Users/hoopoe/Tools/OpenCV-android-sdk
    b) create "jniLibs" folder into following path: "FaceTracker/app/src/main"
    c) copy the pre-compiled libraries from OpenCV-android-sdk/sdk/native/libs into the newly created jniLibs folder
    d) copy "haarcascade_frontalface_default.xml" into "sdcard/Download"
-
+   
+6. To run openalpr activities :
+  * download jniLibs from [this link](https://drive.google.com/open?id=13ZlJvIRBpxydJcm64tS_czQm3e0SBwVu). The folder contains precompiled libs for `ANDROID_PLATFORM="android-21"` and `ANDROID_ABI="armeabi-v7a", "arm64-v8a", "x86_64"`. For compling with another `ANDROID_PLATFORM` or `ANDROID_ABI` use [this script](https://gist.github.com/jav974/072425f14927e6ca2c7a4439d8ac5457).
+  * set env variable OPENALPR_LIBS

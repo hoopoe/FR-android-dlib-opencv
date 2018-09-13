@@ -179,6 +179,9 @@ class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface
             Log.w(TAG, "Recognized");
             mBoxPaint.setColor(Color.GREEN);
             IsRecognized = true;
+            if (str.lastIndexOf("_") > 0) {
+                str = str.substring(0, str.lastIndexOf("_"));
+            }
             mIdentity = str;
         }
     }

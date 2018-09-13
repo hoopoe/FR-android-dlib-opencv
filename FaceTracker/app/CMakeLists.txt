@@ -8,8 +8,7 @@ set (CMAKE_CXX_STANDARD 11)
 
 include_directories(/home/alorusso/Downloads/opencv3-android-sdk-with-contrib-master/OpenCV-android-sdk/sdk/native/jni/include)
 add_library( lib_opencv SHARED IMPORTED )
-#set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION $ENV{OPENCV_ANDROID_SDK}/sdk/native/libs/${ANDROID_ABI}/libopencv_java3.so)
-set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION /home/alorusso/Downloads/opencv3-android-sdk-with-contrib-master/OpenCV-android-sdk/sdk/native/libs/${ANDROID_ABI}/libopencv_java3.so)
+set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION $ENV{OPENCV_ANDROID_SDK}/sdk/native/libs/${ANDROID_ABI}/libopencv_java3.so)
 
 find_library( # Sets the name of the path variable.
               log-lib

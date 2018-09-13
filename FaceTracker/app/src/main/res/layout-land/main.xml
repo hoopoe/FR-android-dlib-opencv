@@ -16,6 +16,26 @@
       android:layout_alignParentRight="true"
       android:drawableRight="@drawable/objects" />
 
+  <Button
+      android:id="@+id/btnTraining"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:gravity="center"
+      android:layout_alignParentBottom="true"
+      android:layout_alignParentLeft="true"
+      android:drawableRight="@drawable/training"
+      />
+
+  <Button
+      android:id="@+id/btnSwitchCamera"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:gravity="center"
+      android:layout_alignParentBottom="true"
+      android:layout_centerInParent="true"
+      android:drawableRight="@drawable/switch_camera"
+      />
+
   <com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSourcePreview
       android:id="@+id/preview"
       android:layout_width="match_parent"
@@ -28,6 +48,30 @@
 
   </com.google.android.gms.samples.vision.face.facetracker.ui.camera.CameraSourcePreview>
 
+  <EditText
+      android:id="@+id/txtTrainingName"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_centerInParent="true"
+      android:ems="10"
+      android:imeOptions="actionDone"
+      android:inputType="textPersonName"
+      android:text=""
+      android:visibility="invisible" />
 
+    <TextView
+        android:id="@+id/lblTraining"
+        android:layout_width="wrap_content"
+        android:layout_height="65dp"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:ems="15"
+        android:inputType="textMultiLine"
+        android:maxLines="5"
+        android:singleLine="false"
+        android:text="To save the face vector, please point the camera at the person and enter his name and press OK"
+        android:textColor="@android:color/holo_blue_bright"
+        android:textSize="14sp"
+        android:visibility="invisible"/>
 
 </RelativeLayout>

@@ -38,6 +38,7 @@ public class CustomDetector extends Detector<Face> {
 
     private int faceid;
     private int x, y, w, h;
+    public volatile int frameRotation;
 
     CustomDetector(Detector<Face> delegate, FaceRecognizer faceRecognizer)
     {
@@ -67,6 +68,7 @@ public class CustomDetector extends Detector<Face> {
     //@Override
     public SparseArray<Face> detect(Frame frame) {
         mFrame = frame;
+        frameRotation = frame.getMetadata().getRotation();
 
         if (!IsBusy && y > 0 && recognitionHandler != null) {
             IsBusy = true;
@@ -82,6 +84,7 @@ public class CustomDetector extends Detector<Face> {
             Bitmap tmpBitmap = BitmapFactory.decodeByteArray(jpegArray, 0, jpegArray.length);
             final Bitmap cropped;
             Matrix rot = new Matrix();
+            //Log.d(TAG, String.format("rotation %d", frame.getMetadata().getRotation()));
             switch (frame.getMetadata().getRotation())
             {
                 case 1:
@@ -142,4 +145,5 @@ public class CustomDetector extends Detector<Face> {
     public boolean setFocus(int id) {
         return mDelegate.setFocus(id);
     }
+
 }
