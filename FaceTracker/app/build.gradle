@@ -90,5 +90,5 @@ dependencies {
     implementation 'com.google.android.gms:play-services-vision:9.4.0+'
     implementation 'com.shamanland:xdroid-toaster:0.2.4'
     implementation 'org.tensorflow:tensorflow-android:+'
-    implementation project(':openCVLibrary330')
+    implementation project(':openCVLibrary340dev')
 }
