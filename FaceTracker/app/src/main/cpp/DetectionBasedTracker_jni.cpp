@@ -5,7 +5,7 @@
 
 #include <android/log.h>
 #include <chrono>
-#include <opencv2/imgproc.hpp>
+//#include <opencv2/imgproc.hpp>
 
 
 
