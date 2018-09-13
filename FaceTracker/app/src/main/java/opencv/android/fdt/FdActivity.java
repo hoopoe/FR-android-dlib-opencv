@@ -34,7 +34,7 @@ import org.opencv.android.facetracker.OpenCvActivity;
 //import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.samples.vision.face.facetracker.R;
 
-import tensorflow.detector.spc.CameraActivityMain;
+import tensorflow.detector.spc.CameraActivityMainSPC;
 
 /**
  * Created by alorusso on 12/07/18.
@@ -151,7 +151,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         mBtnSwitch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent myIntent = new Intent(FdActivity.this, CameraActivityMain.class);
+                Intent myIntent = new Intent(FdActivity.this, CameraActivityMainSPC.class);
                 FdActivity.this.startActivity(myIntent);
             }
         });
