@@ -1,8 +1,8 @@
-#include "DetectionBasedTracker_jni.h"
+#include <opencv2/core.hpp>
+#include <opencv2/objdetect.hpp>
 #include <string>
 #include <vector>
-//#include <opencv2/objdetect.hpp>
-
+//#include <opencv2/opencv.hpp>
 #include <android/log.h>
 #include <chrono>
 //#include <opencv2/imgproc.hpp>
@@ -13,9 +13,6 @@
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
 #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 
-
-extern "C"
-{
 
 
 using namespace std;
@@ -223,4 +220,4 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
 
     LOGD("Java_opencv_android_fdt_DetectionBasedTracker_nativeDetect EXIT");
 }
-}
+
