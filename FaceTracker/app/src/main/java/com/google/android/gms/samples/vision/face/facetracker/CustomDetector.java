@@ -23,7 +23,7 @@ interface RecognitionInterface
 }
 
 public class CustomDetector extends Detector<Face> {
-    private static final String TAG = "CustomDetector";
+    private static final String TAG = "GMS-CustomDetector";
     private Detector<Face> mDelegate;
     public RecognitionInterface recognitionHandler;
     public Frame mFrame;
@@ -129,7 +129,12 @@ public class CustomDetector extends Detector<Face> {
             //IsRunning = false;
         }
 
+        long start = System.currentTimeMillis();
         SparseArray<Face> faces = mDelegate.detect(frame);
+        long end = System.currentTimeMillis();
+        long duration = end -start;
+        Log.i(TAG,"GMS FD Exectime = " + duration/1000.0 + " sec");
+
         return faces;
     }
 

@@ -28,10 +28,10 @@ android {
         signingConfig signingConfigs.config
 
         // Specifies the application ID for the test APK.
-        testApplicationId "org.opencv.android.facetracker"
+        // testApplicationId "opencv.android.fdt"
+        // testApplicationId "org.opencv.android.facetracker"
         // Specifies the fully-qualified class name of the test instrumentation runner.
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-
 
     }
 
@@ -63,17 +63,14 @@ android {
     }
 
     sourceSets {
-        main {
-            jniLibs.srcDirs = [
-                    'src/main/jniLibs']
-            resources.srcDirs=[
-                    'src/main/resources', 'src/main/res/raw']}
+        main {            
+            res.srcDirs = ['src/main/res', 'src/res/', 'src/androidTest/res/']
+        }
         androidTest {  // AL (
             java.srcDir file('src/androidTest/java')
             resources.srcDir file('src/androidTest/assets')
         } // AL )
     }
-
     configurations.all {
         resolutionStrategy.force 'com.android.support:support-annotations:23.4.0'
     }

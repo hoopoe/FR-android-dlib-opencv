@@ -275,7 +275,7 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
     LOGI("color image :: width is %d; height is %d; stride is %d; format is %d;flags is %d",
          infocolor.width, infocolor.height, infocolor.stride, infocolor.format, infocolor.flags);
 
-    LOGI("known_faces size %d", known_faces.size());
+    LOGI("known_faces size %u", known_faces.size());
     if (infocolor.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
         LOGE("Bitmap format is not RGBA_8888 !");
         return env->NewStringUTF("Image broken 2");

@@ -22,29 +22,6 @@ JNIEXPORT jlong JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeCrea
 JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDestroyObject
         (JNIEnv *, jclass, jlong);
 
-/*
- * Class:     org_opencv_samples_fd_DetectionBasedTracker
- * Method:    nativeStart
- * Signature: (J)V
- */
-JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeStart
-        (JNIEnv *, jclass, jlong);
-
-/*
- * Class:     org_opencv_samples_fd_DetectionBasedTracker
- * Method:    nativeStop
- * Signature: (J)V
- */
-JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeStop
-        (JNIEnv *, jclass, jlong);
-
-/*
- * Class:     org_opencv_samples_fd_DetectionBasedTracker
- * Method:    nativeSetFaceSize
- * Signature: (JI)V
- */
-JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeSetFaceSize
-        (JNIEnv *, jclass, jlong, jint);
 
 /*
  * Class:     org_opencv_samples_fd_DetectionBasedTracker

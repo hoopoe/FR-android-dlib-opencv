@@ -9,7 +9,6 @@
         android:minSdkVersion="21"
         android:targetSdkVersion="23" />
 
-    <uses-feature android:name="android.hardware.camera" />
 
     <uses-permission android:name="android.permission.CAMERA" />
 
@@ -58,6 +57,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
 
         <activity
             android:name="org.opencv.android.facetracker.OpenCvActivity"

@@ -54,6 +54,7 @@ import com.google.android.gms.vision.Tracker;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
 
+import opencv.android.fdt.FdActivity;
 import org.opencv.android.facetracker.OpenCvActivity;
 
 import java.io.File;
@@ -92,8 +93,8 @@ class DoneOnEditorActionListener implements TextView.OnEditorActionListener {
  * overlay graphics to indicate the position, size, and ID of each face.
  */
 public final class FaceTrackerActivity extends AppCompatActivity {
-    private static final String TAG = "FaceTrackerActivity";
 
+    private static final String TAG = "GMS";
     private CameraSource mCameraSource = null;
 
     private CameraSourcePreview mPreview;
@@ -285,7 +286,9 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         mBtnDetect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent myIntent = new Intent(FaceTrackerActivity.this, CameraActivityMainSPC.class);
+
+                Intent myIntent = new Intent(FaceTrackerActivity.this, OpenCvActivity.class);
+                //Intent myIntent = new Intent(FaceTrackerActivity.this, CameraActivityMainSPC.class);
                 //Intent myIntent = new Intent(FaceTrackerActivity.this, FdActivity.class);
                 FaceTrackerActivity.this.startActivity(myIntent);
             }
