@@ -71,10 +71,12 @@ import tensorflow.detector.spc.tracking.MultiBoxTracker;
 public class CameraActivityMainFaces extends Activity
     implements OnImageAvailableListener, Camera.PreviewCallback {
 
-  private static final int TF_OD_API_INPUT_SIZE = 512;
+  // private static final int TF_OD_API_INPUT_SIZE = 512;
+  private static final int TF_OD_API_INPUT_SIZE = 416;
   //private static int INPUT_SIZE_WIDTH, INPUT_SIZE_HEIGHT;
   // Tensorflow Object Detection API frozen checkpoints
-  private static final String TF_OD_API_MODEL_FILE = "file:///android_asset/frozen_inference_graph_face.pb";
+  //private static final String TF_OD_API_MODEL_FILE = "file:///android_asset/frozen_inference_graph_face.pb";
+  private static final String TF_OD_API_MODEL_FILE = "file:///android_asset/mobilenet_v1_1.0_224_frozen.pb";
   private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/labels_face.txt";
 
 
