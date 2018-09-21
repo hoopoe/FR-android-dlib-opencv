@@ -43,7 +43,8 @@ before_script:
 #  - export OPENCV_ANDROID_SDK=$(pwd)/OpenCV-android-sdk
   - export OPENCV_ANDROID_SDK=$(pwd)/opencv3-android-sdk-with-contrib-master/OpenCV-android-sdk
 #
-  - wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=13ZlJvIRBpxydJcm64tS_czQm3e0SBwVu' -O jniLibss.zip
+# - wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=13ZlJvIRBpxydJcm64tS_czQm3e0SBwVu' -O jniLibss.zip
+  - wget --no-check-certificate 'http://www.webito.net/opencvlibs/openalprJniLibs.zip' -O jniLibss.zip
   - unzip jniLibss.zip
   - export OPENALPR_LIBS=$(pwd)/jniLibs
 
