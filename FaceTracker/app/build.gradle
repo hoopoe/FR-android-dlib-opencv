@@ -21,6 +21,7 @@ android {
             cmake {
                 cppFlags "-frtti -fexceptions -std=c++11"
                 abiFilters 'armeabi-v7a', 'arm64-v8a'
+                arguments "-DANDROID_STL=c++_shared"
             }
         }
         signingConfig signingConfigs.config
