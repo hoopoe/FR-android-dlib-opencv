@@ -11,24 +11,21 @@ android {
         }
     }
     compileSdkVersion 23
-    buildToolsVersion '27.0.3'
+    buildToolsVersion '28.0.2'
     defaultConfig {
         applicationId "com.google.android.gms.samples.vision.face.facetracker"
         minSdkVersion 21
-        targetSdkVersion 23
         versionCode 1
         versionName "1.0"
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti -fexceptions -std=c++11"
-                abiFilters 'x86_64', 'armeabi-v7a', 'arm64-v8a'
-                arguments "-DANDROID_STL=gnustl_shared"
+                abiFilters 'armeabi-v7a'
             }
         }
         signingConfig signingConfigs.config
 
         // Specifies the application ID for the test APK.
-        testApplicationId "org.opencv.android.facetracker"
         // Specifies the fully-qualified class name of the test instrumentation runner.
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
@@ -93,5 +90,4 @@ dependencies {
     implementation 'com.google.android.gms:play-services-vision:9.4.0+'
     implementation 'com.shamanland:xdroid-toaster:0.2.4'
     implementation 'org.tensorflow:tensorflow-android:+'
-    implementation project(':openCVLibrary340dev')
 }
