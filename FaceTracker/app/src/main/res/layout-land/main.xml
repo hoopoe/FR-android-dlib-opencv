@@ -14,7 +14,7 @@
       android:layout_height="wrap_content"
       android:layout_alignParentBottom="true"
       android:layout_alignParentRight="true"
-      android:drawableRight="@drawable/objects" />
+      android:drawableRight="@drawable/second" />
 
   <Button
       android:id="@+id/btnTraining"
