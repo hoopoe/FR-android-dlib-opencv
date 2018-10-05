@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="opencv.android.fdt.FdActivity" >
+
+
+    <org.opencv.android.JavaCameraView
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:id="@+id/fd_activity_surface_view" />
+
+    <Button
+        android:id="@+id/btnGMS"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:drawableRight="@drawable/objects" />
+
+    <Button
+        android:id="@+id/btnTF"
+        android:layout_width="wrap_content"
+        android:background="@android:color/black"
+        android:textColor="@android:color/white"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:drawableRight="@drawable/face_detection" />
+
+
+</RelativeLayout>

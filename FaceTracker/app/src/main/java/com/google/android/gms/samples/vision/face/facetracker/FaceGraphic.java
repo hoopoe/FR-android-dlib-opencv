@@ -40,7 +40,8 @@ import java.util.Map;
  * graphic overlay view.
  */
 class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface {
-    private static final String TAG = "FaceGraphic";
+    // private static final String TAG = "FaceGraphic";
+    private static final String TAG = "GMS";
 
     private static final float FACE_POSITION_RADIUS = 10.0f;
     private static final float ID_TEXT_SIZE = 50.0f;

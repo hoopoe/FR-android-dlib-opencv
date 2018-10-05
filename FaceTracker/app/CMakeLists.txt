@@ -10,6 +10,7 @@ include_directories($ENV{OPENCV_ANDROID_SDK}/sdk/native/jni/include)
 add_library( lib_opencv SHARED IMPORTED )
 set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION $ENV{OPENCV_ANDROID_SDK}/sdk/native/libs/${ANDROID_ABI}/libopencv_java3.so)
 
+
 find_library( # Sets the name of the path variable.
               log-lib
 
@@ -53,6 +54,7 @@ add_library( # Sets the name of the library.
              # file are automatically included.
              src/main/cpp/native-lib.cpp )
 
+
 target_link_libraries( # Specifies the target library.
                        native-lib
 
@@ -65,7 +67,6 @@ target_link_libraries( # Specifies the target library.
                        ${log-lib} )
 
 
-
 add_library( # Sets the name of the library.
              OCV-native-lib
 
@@ -75,8 +76,8 @@ add_library( # Sets the name of the library.
              # Provides a relative path to your source file(s).
              # Associated headers in the same location as their source
              # file are automatically included.
-               src/main/cpp/OCV-native-lib.cpp
-             )
+             src/main/cpp/OCV-native-lib.cpp )
+
 
 target_link_libraries(
                        OCV-native-lib
@@ -84,6 +85,7 @@ target_link_libraries(
                        lib_opencv
 
                        ${log-lib} )
+
 
 add_library( # Sets the name of the library.
             OCV-DetectionBasedTracker
@@ -94,8 +96,7 @@ add_library( # Sets the name of the library.
             # Provides a relative path to your source file(s).
             # Associated headers in the same location as their source
             # file are automatically included.
-            src/main/cpp/DetectionBasedTracker_jni.cpp
-            )
+            src/main/cpp/DetectionBasedTracker_jni.cpp )
 
 target_link_libraries(
                       OCV-DetectionBasedTracker
