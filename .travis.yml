@@ -47,6 +47,8 @@ before_script:
   - wget --no-check-certificate 'http://www.webito.net/opencvlibs/openalprJniLibs.zip' -O jniLibss.zip
   - unzip jniLibss.zip
   - export OPENALPR_LIBS=$(pwd)/jniLibs
+  
+  sdkmanager --list || true
 
 script:
 - cd FaceTracker
