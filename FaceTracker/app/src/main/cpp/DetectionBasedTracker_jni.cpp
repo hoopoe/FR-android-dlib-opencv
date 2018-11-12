@@ -11,7 +11,7 @@
 
 
 
-#define LOG_TAG "Fd-DBasedT"
+#define LOG_TAG "FDbT-DBasedT"
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
 #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 
@@ -48,7 +48,7 @@ public:
         // scaleFactor, minNeighbours, minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
 
         //Detector->detectMultiScale(Image, objects, scaleFactor, minNeighbours, 0, minObjSize, maxObjSize);
-        Detector->detectMultiScale(Image, objects, 1.1, 3, 0, Size(0, 0), Size(1000, 1000));
+        Detector->detectMultiScale(Image, objects, 1.1, 3, 0, Size(15,15), Size(1000, 1000));
         LOGD("CALLED DetectMultiScale");
         LOGD("CascadeDetectorAdapter::Detect: NUM FRAME = %d", numframe++);
 
@@ -182,6 +182,15 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
         LOGD("DetectionBasedTracker_nativeDetect NativeRectFaces = %zu", RectFaces.size());
 
         // if no faces from native detector
+
+
+        if(RectFaces.size() <= 0) { // no faces
+            face_cascade.detectMultiScale(*((Mat *) imageGray), RectFaces, 1.1, 3, 0,
+                                          Size(15, 15), Size(1000, 1000));
+        }
+
+        // uncomment only for images
+        /*
         if (firstDetection == 0) {
             if(RectFaces.size() > 0)  firstDetection = 1;
             else {
@@ -189,13 +198,14 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
                 if ((prevRectFaces.size() == 0) || ((nativeNumFrame % 6) == 0)) {
 
                     face_cascade.detectMultiScale(*((Mat *) imageGray), RectFaces, 1.1, 3, 0,
-                                                  Size(0, 0), Size(1000, 1000));
+                                                  Size(15, 15), Size(1000, 1000));
                     LOGD("DetectionBasedTracker_nativeDetect AFTER MY detection: RectFaces size = %zu",RectFaces.size());
                     prevRectFaces = RectFaces;
 
                 } else  RectFaces = prevRectFaces; // there were previous face detected
             }
         }
+        */
 
         LOGD("DetectionBasedTracker_nativeDetect NUM FRAME = %d", nativeNumFrame++);
 

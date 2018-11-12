@@ -32,7 +32,7 @@ import org.opencv.imgproc.Imgproc;
  */
 
 public class HaarDetectorTest {
-    private static final String TAG = "FD-Test";
+    private static final String TAG = "OCV-Test";
     private static final Scalar DETECT_BOX_COLOR   = new Scalar(0, 255, 0, 255);
     String filename =   "FD-SolvayRes.png";
     String AppResPath = "/myAppRes/";
@@ -61,7 +61,7 @@ public class HaarDetectorTest {
 
         Mat matImg = new Mat();
         Utils.bitmapToMat(bitmap, matImg);
-        Imgproc.cvtColor(matImg, matImg, Imgproc.COLOR_RGB2GRAY);
+        Imgproc.cvtColor(matImg, matImg, Imgproc.COLOR_RGB2RGBA); // pass colour img
 
         MatOfRect rectList = new MatOfRect();
         hd.OCvDetect(matImg, rectList);

@@ -43,7 +43,7 @@ import tensorflow.detector.spc.CameraActivityMainSPC;
 
 public class FdActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
-    private static final String    TAG                 = "Fd-Activity";
+    private static final String    TAG                 = "FDbT-Activity";
     private static final Scalar    FACE_RECT_COLOR     = new Scalar(255, 255, 255, 255);
 
     private Button                 mBtnBack;
@@ -216,7 +216,7 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
 
         long start = System.currentTimeMillis();
 
-        //mJavaDetector.detectMultiScale(mGray, faces, 1.1, 2, 2, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
+        // mJavaDetector.detectMultiScale(mGray, faces, 1.1, 3, 0, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
         //        new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
 
         mNativeDetector.detect(mGray, faces);

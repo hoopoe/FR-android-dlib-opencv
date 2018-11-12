@@ -16,6 +16,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;  // needed for Java based HAAR call
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.videoio.VideoCapture;
 
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
@@ -45,14 +46,15 @@ public class VideoDetectionTrackerTest {
     private File                    mCascadeFile;
     private String                  AppPath    = "/myAppFolder/";
     private String                  AppResPath = "/myAppRes/";
-    // private String                  videoname  = "v1465.mp4";
-    private String                  videoname  = "Trellis.mp4";
+    private String                  videoname  = "Girl.mp4";
+    //private String                  videoname  = "v1465.mp4";
     private String                  outImgName = "/FDbT-frame";
     private String                  AppResSDcardDir = "/myAppDataRes/";
     private DetectionBasedTracker   nativeDetect;
     private CascadeClassifier       mJavaDetector;
     private String                  AppResTxtFile = "FDbT-TestRes.txt";
     private OutputStreamWriter      fos = null;
+    private int                     imgCount = 0;
 
 
     static {
@@ -131,24 +133,35 @@ public class VideoDetectionTrackerTest {
         int millis = mp.getDuration(); // time in millisecs
         Log.i(TAG,"video duration (msec)= " + millis);
 
+        Log.i(TAG, "filename =" + videoFile.toString());
 
-        for(int i=0, j=0;i<millis*1000; j++, i+=1000000) {
+        int i = 0, j = 0;
+        // for(long i=0, j=0;i<millis*1000; j++, i+=33334) {
+        while (i<millis*1000) {
 
-            Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            Mat matImg = new Mat();
+            Mat grayImg = new Mat();
+
+            Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST);
             if (bitmap != null) {
 
-                Mat matImg = new Mat();
                 Utils.bitmapToMat(bitmap, matImg);
-                Imgproc.cvtColor(matImg, matImg, Imgproc.COLOR_RGB2GRAY);
+                Imgproc.cvtColor(matImg, grayImg, Imgproc.COLOR_RGB2GRAY);
 
                 MatOfRect rectList = new MatOfRect();
+                long start = System.currentTimeMillis();
 
-                nativeDetect.detect(matImg, rectList);
+                nativeDetect.detect(grayImg, rectList);
                 //mJavaDetector.detectMultiScale(matImg, rectList, 1.1, 3, 0, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
-                //       new Size(0,0), new Size(1000,1000));
+                //       new Size(15,15), new Size(1000,1000));
+
+                long end = System.currentTimeMillis();
+                long duration = end -start;
+                Log.i(TAG,"FDbT-Activity Time: " + duration/1000.0 + " sec");
+
 
                 Rect[] faces = rectList.toArray();
-                Utils.bitmapToMat(bitmap, matImg); // copy again RGB img in Mat
+                // Utils.bitmapToMat(bitmap, matImg); // copy again RGB img in Mat
                 Log.i(TAG, "Num of faces = " + faces.length);
 
                 try {
@@ -157,9 +170,7 @@ public class VideoDetectionTrackerTest {
                                 Integer.toString(0) + "," + Integer.toString(0) + ";"+ "\n"); // write to file
                         fos.flush();
                     }
-
                     else {
-
                         for (int k = 0; k < faces.length; k++) {
                             Imgproc.rectangle(matImg, faces[k].tl(), faces[k].br(), DETECT_BOX_COLOR, 3);
 
@@ -176,18 +187,27 @@ public class VideoDetectionTrackerTest {
                     System.out.println("Exception e: " + e);
                 }
 
-                Utils.matToBitmap(matImg,bitmap); // convert Mat to bitmap before saving to memory
-                rev.add(bitmap); // add image to a list to be written to memory
+                bitmap = Bitmap.createBitmap(matImg.cols(),matImg.rows(),Bitmap.Config. ARGB_8888); // Each pixel is stored on 4 bytes. Each channel (RGB and alpha for translucency) is stored with 8 bits of precision (256 possible values.) This configuration is very flexible and offers the best quality.
+                Utils.matToBitmap(matImg,bitmap); // copy img with detection boxes in bitmap to be saved
+                saveImage(bitmap);
                 Log.i(TAG, "added frame = " +i+"  "+ j);
+                //Log.i(TAG, "added frame = " +(++i));
             }
+            else {
+                Log.i(TAG, "END of VIDEO or BITMAP is NULL!!");
+                break;
+            }
+            j++;
+            i += 1000000;
+            // i+=33334;
         }
-
-        saveImage(rev); // save frames
+        fos.close();
         mp.release();
+        if(fOut != null) fOut.close();
     }
 
 
-    public void saveImage(ArrayList<Bitmap> saveBitmapList) throws IOException{
+    public void saveImage(Bitmap saveBitmap) throws IOException{
 
         String SDCardPath = Environment.getExternalStorageDirectory().toString();
         File saveFolder = new File(SDCardPath + AppResPath);
@@ -195,25 +215,28 @@ public class VideoDetectionTrackerTest {
             saveFolder.mkdirs();
         }
 
+        if(saveBitmap != null) {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            saveBitmap.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
 
-        int i=0;
-        for (Bitmap b : saveBitmapList){
-            if(b != null) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                b.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
+            imgCount++;
+            File f = new File(saveFolder + outImgName + imgCount + ".jpg");
+            Log.i(TAG, "writing image file = " + imgCount +"   "+ f);
 
-                i++;
-                File f = new File(saveFolder + outImgName + i + ".jpg");
-                Log.i(TAG, "writing image file = " + i +"   "+ f);
+            f.createNewFile();
 
-                f.createNewFile();
+            FileOutputStream fo = new FileOutputStream(f);
+            fo.write(bytes.toByteArray());
 
-                FileOutputStream fo = new FileOutputStream(f);
-                fo.write(bytes.toByteArray());
-
-                fo.flush();
-                fo.close();
-            }
+            fo.flush();
+            fo.close();
         }
     }
 }
+
+// http://answers.opencv.org/question/183186/how-to-open-video-file-mp4avi-using-opencv-in-android-and-detect-faces-in-the-video/
+// http://answers.opencv.org/question/126732/loading-video-files-using-videocapture-in-android/
+// limited to mjpg/avi
+
+// wrt blueish images with OpenCV
+// https://stackoverflow.com/questions/36402088/opencv-android-imwrite-give-me-a-blue-image

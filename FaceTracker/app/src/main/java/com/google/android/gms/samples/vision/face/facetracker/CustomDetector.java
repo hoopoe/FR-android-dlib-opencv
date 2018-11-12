@@ -1,5 +1,6 @@
 package com.google.android.gms.samples.vision.face.facetracker;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -14,8 +15,8 @@ import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.face.Face;
 
 import java.io.ByteArrayOutputStream;
-
 import dlib.android.FaceRecognizer;
+
 
 interface RecognitionInterface
 {
@@ -39,6 +40,7 @@ public class CustomDetector extends Detector<Face> {
     private int faceid;
     private int x, y, w, h;
     public volatile int frameRotation;
+
 
     CustomDetector(Detector<Face> delegate, FaceRecognizer faceRecognizer)
     {
@@ -67,7 +69,9 @@ public class CustomDetector extends Detector<Face> {
 
     //@Override
     public SparseArray<Face> detect(Frame frame) {
+
         mFrame = frame;
+
         frameRotation = frame.getMetadata().getRotation();
 
         if (!IsBusy && y > 0 && recognitionHandler != null) {
@@ -131,6 +135,7 @@ public class CustomDetector extends Detector<Face> {
 
         long start = System.currentTimeMillis();
         SparseArray<Face> faces = mDelegate.detect(frame);
+
         long end = System.currentTimeMillis();
         long duration = end -start;
         Log.i(TAG,"GMS FD Exectime = " + duration/1000.0 + " sec");

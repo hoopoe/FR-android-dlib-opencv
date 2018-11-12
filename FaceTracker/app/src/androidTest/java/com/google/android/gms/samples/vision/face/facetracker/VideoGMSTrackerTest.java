@@ -41,12 +41,13 @@ public class VideoGMSTrackerTest {
     private String              filename   = "GMS-SolvayRes.png";
     private String              AppResPath = "/myAppRes/";
     private String              AppPath    = "/myAppFolder/";
-    // private String              videoname  = "v1465.mp4";
-    private String              videoname  = "Trellis.mp4";
+    private String              videoname  = "v1465.mp4";
+    //private String              videoname  = "Girl.mp4";
     private String              outImgName = "/GMS-frame";
     private String              AppResSDcardDir = "/myAppDataRes/";
     private String              AppResTxtFile = "GMS-TestRes.txt";
-    private OutputStreamWriter  fos = null;
+    private OutputStreamWriter  fos           = null;
+    private int                 imgCount      = 0;
 
     @Test
     public void gmsVideoTest() throws IOException {
@@ -87,7 +88,7 @@ public class VideoGMSTrackerTest {
         if(fOut != null) fos = new OutputStreamWriter(fOut);
         // end creation result file on SD card
 
-        ArrayList<Bitmap> rev=new ArrayList<Bitmap>(); // struct for image saving on memory
+        // ArrayList<Bitmap> rev=new ArrayList<Bitmap>(); // struct for image saving on memory
 
         // Create a new Media Player to get video metadata
         Uri videoFileUri=Uri.parse(videoFile.toString());
@@ -97,17 +98,19 @@ public class VideoGMSTrackerTest {
         Log.i(TAG,"video duration (msec)= " + millis);
 
 
-        for(int i=0, j=0;i<millis*1000; j++, i+=1000000) {
-        // for(int i=0, j=0;i<18000000; j++, i+=1000000) {
-            Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+        // for(int i=0, j=0; i<millis*1000; j++, i+=33334) {  // or i+=1000000
+        int i = 0, j = 0;
+        while (i<millis*1000) {
+
+            Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST);
             if (bitmap != null) {
 
                 FaceDetector mDetector = new FaceDetector.Builder(appContext) // using testContext didn't work
-                        .setTrackingEnabled(true)
+                        .setTrackingEnabled(false) // true to enable tracking
                         .setClassificationType(FaceDetector.NO_CLASSIFICATIONS)
                         .setProminentFaceOnly(false)
-                        .setMode(FaceDetector.ACCURATE_MODE)
-                        .setMinFaceSize(0.015f)
+                        .setMode(FaceDetector.FAST_MODE)
+                        .setMinFaceSize(0.003f) // (15/5312) 15pix head width
                         .build();
 
                 SparseArray<Face> faces = null;
@@ -115,10 +118,19 @@ public class VideoGMSTrackerTest {
                 if (!mDetector.isOperational()) {
                     Log.i(TAG, "Detector is NOT operational ");
                 } else {
+
                     Frame frame = new Frame.Builder().setBitmap(bitmap).build();
+
+                    long start = System.currentTimeMillis();
+
                     faces = mDetector.detect(frame);
-                    mDetector.release();
+
+                    long end = System.currentTimeMillis();
+                    long duration = end -start;
+                    Log.i(TAG,"GMS-Activity Time: " + duration/1000.0 + " sec");
                     Log.i(TAG, "GMS-TEST Number of faces = " + faces.size());
+
+                    mDetector.release();
                 }
 
                 Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
@@ -161,20 +173,23 @@ public class VideoGMSTrackerTest {
                     System.out.println("Exception e: " + e);
                 }
 
-                rev.add(mutableBitmap); // add image to a list to be written to memory
+                // rev.add(mutableBitmap); // add image to list to be written to memory
+                saveImage(mutableBitmap); // write image onto memory
                 Log.i(TAG, "added frame = " +i+"  "+ j);
+                j++;
+                //i+=33334;
+                i += 1000000;
             }
-        }
+        } // end loop on video frames
         // close output stream
-
         fos.close();
-
-        saveImage(rev); // save frames
         mp.release();
+        if(fOut != null) fOut.close();
     }
 
 
-    public void saveImage(ArrayList<Bitmap> saveBitmapList) throws IOException{
+
+    public void saveImage(Bitmap saveBitmap) throws IOException{
 
         String SDCardPath = Environment.getExternalStorageDirectory().toString();
         File saveFolder = new File(SDCardPath + AppResPath);
@@ -182,26 +197,23 @@ public class VideoGMSTrackerTest {
             saveFolder.mkdirs();
         }
 
+        if(saveBitmap != null) {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            saveBitmap.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
 
-        int i=0;
-        for (Bitmap b : saveBitmapList){
-            if(b != null) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                b.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
+            imgCount++;
+            File myFile = new File(saveFolder + outImgName + imgCount + ".jpg");
+            Log.i(TAG, "writing image file = " + imgCount +"   "+ myFile);
 
-                i++;
-                File myFile = new File(saveFolder + outImgName + i + ".jpg");
-                Log.i(TAG, "writing image file = " + i +"   "+ myFile);
+            if (!myFile.exists())
+                myFile.createNewFile();
 
-                if (!myFile.exists())
-                    myFile.createNewFile();
+            FileOutputStream fo = new FileOutputStream(myFile);
+            fo.write(bytes.toByteArray());
 
-                FileOutputStream fo = new FileOutputStream(myFile);
-                fo.write(bytes.toByteArray());
-
-                fo.flush();
-                fo.close();
-            }
+            bytes.flush();
+            fo.flush();
+            fo.close();
         }
     }
 }

@@ -10,10 +10,10 @@ import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Environment;
-import android.support.test.InstrumentationRegistry;
+//import android.support.test.InstrumentationRegistry;
 import android.util.Log;
 
-import com.google.android.gms.samples.vision.face.facetracker.R;
+//import com.google.android.gms.samples.vision.face.facetracker.R;
 
 import org.junit.Test;
 import org.opencv.android.Utils;
@@ -23,6 +23,7 @@ import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.videoio.VideoCapture;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -34,23 +35,24 @@ import java.util.ArrayList;
 
 
 import static xdroid.core.Global.getContext;
-import static xdroid.core.Global.getResources;
+//import static xdroid.core.Global.getResources;
 
 
 
 public class VideoHaarDetectorTest {
 
-    private static final String     TAG = "FDT-Test";
+    private static final String     TAG                = "OCV-FDT-Test";
     private static final Scalar     DETECT_BOX_COLOR   = new Scalar(0, 255, 0, 255);
     private String                  AppPath    = "/myAppFolder/";
     private String                  AppResPath = "/myAppRes/";
-    //private String                  videoname  = "v1465.mp4";
-    private String                  videoname  = "Trellis.mp4";
+    //private String                  videoname  = "Girl.mp4";
+    private String                  videoname  = "v1465.mp4";
     private String                  outImgName = "/FDT-frame";
     private String                  AppResSDcardDir = "/myAppDataRes/";
     private CascadeClassifier       mJavaDetector;
     private String                  AppResTxtFile = "FDT-TestRes.txt";
-    private OutputStreamWriter      fos = null;
+    private OutputStreamWriter      fos           = null;
+    private int                     imgCount      = 0;
 
 
     static {
@@ -106,56 +108,77 @@ public class VideoHaarDetectorTest {
         int millis = mp.getDuration(); // time in millisecs
         Log.i(TAG,"video duration (msec)= " + millis);
 
+        long i=0, j=0;
+        //for(long i=0, j=0;i<millis*1000; j++, i+=33334) {
+        while (i<millis*1000) {
 
-        for(int i=0, j=0;i<millis*1000; j++, i+=1000000) {
+            Mat rgbaImg = new Mat();
+            Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST);
 
-            Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             if (bitmap != null) {
 
-                Mat matImg = new Mat();
-                Utils.bitmapToMat(bitmap, matImg);
-                Imgproc.cvtColor(matImg, matImg, Imgproc.COLOR_RGB2GRAY);
+                Utils.bitmapToMat(bitmap, rgbaImg);
+                Log.i(TAG,"Matrix:  " + rgbaImg.type() +"  "+ rgbaImg.cols()+"  " + rgbaImg.rows());
 
-                MatOfRect rectList = new MatOfRect();
-                hd.OCvDetect(matImg, rectList);
+                // Imgproc.cvtColor(matImg, rgbaImg, Imgproc.COLOR_RGB2RGBA); // ???
 
-                Rect[] faces = rectList.toArray();
-                Utils.bitmapToMat(bitmap, matImg); // copy again RGB img in Mat
-                Log.i(TAG, "Number of faces = " + faces.length);
+                long start = System.currentTimeMillis();
+
+                MatOfRect faces = hd.testOnCameraFrame(rgbaImg);
+
+                long end = System.currentTimeMillis();
+                long duration = end -start;
+                Log.i(TAG,"FDT-Activity Time " + duration/1000.0 + " sec");
+
+                Utils.bitmapToMat(bitmap, rgbaImg); // copy again RGB img in Mat
+                Log.i(TAG, "Number of faces = " + faces.toArray().length);
 
                 try {
-                    if (faces.length == 0) {
+                    if (faces.toArray().length == 0) {
+                        Log.i(TAG, "Faces# inside IF = " + faces.toArray().length);
                         fos.write(Integer.toString(0) + "," + Integer.toString(0) + "," +
                                 Integer.toString(0) + "," + Integer.toString(0) + ";"+"\n"); // write to file
                         fos.flush();
                     }
                     else {
-                        for (int k = 0; k < faces.length; k++) {
-                            Imgproc.rectangle(matImg, faces[k].tl(), faces[k].br(), DETECT_BOX_COLOR, 3);
+                        Log.i(TAG, "Faces# inside else = " + faces.toArray().length);
+                        for (int k = 0; k < faces.toArray().length; k++) {
+                            Imgproc.rectangle(rgbaImg, faces.toArray()[k].tl(), faces.toArray()[k].br(), DETECT_BOX_COLOR, 3);
 
-                            fos.write(Integer.toString((int) faces[k].tl().x) + "," + Integer.toString((int) faces[k].tl().y) + "," +
-                                    Integer.toString((int) (faces[k].br().x - faces[k].tl().x)) + "," + Integer.toString((int) (faces[k].br().y - faces[k].tl().y)) + ";");
+                            fos.write(Integer.toString((int) faces.toArray()[k].tl().x) + "," + Integer.toString((int) faces.toArray()[k].tl().y) + "," +
+                                    Integer.toString((int) (faces.toArray()[k].br().x - faces.toArray()[k].tl().x)) + "," +
+                                    Integer.toString((int) (faces.toArray()[k].br().y - faces.toArray()[k].tl().y)) + ";");
                             fos.flush();
                         }
+
                         fos.write("\n");
                     }
                 }catch (FileNotFoundException e) {
                         System.out.println("Exception e: " + e);
                 }
 
-                Utils.matToBitmap(matImg,bitmap); // convert Mat to bitmap before saving to memory
-
-                rev.add(bitmap); // add to a list of images that will be written all together on memory
-                Log.i(TAG, " frame i = " + i + " added frame =" + j);
+                bitmap = Bitmap.createBitmap(rgbaImg.cols(),rgbaImg.rows(),Bitmap.Config. ARGB_8888); // Each pixel is stored on 4 bytes. Each channel (RGB and alpha for translucency) is stored with 8 bits of precision (256 possible values.) This configuration is very flexible and offers the best quality.
+                Utils.matToBitmap(rgbaImg,bitmap); // copy img with detection boxes in bitmap to be saved
+                saveImage(bitmap);
+                Log.i(TAG, "added frame = " +i+"  "+ j);
+                //Log.i(TAG, "added frame = " +(++i));
             }
-        }
+            else {
+                Log.i(TAG, "END of SEQUENCE or NULL BITMAP!!");
+                break;
+            }
+            j++;
+            //i+=33334;
+            i+=1000000;
 
-        saveImage(rev); // save frames
+        }
+        fos.close();
         mp.release();
+        if(fOut != null) fOut.close();
     }
 
 
-    public void saveImage(ArrayList<Bitmap> saveBitmapList) throws IOException{
+    public void saveImage(Bitmap saveBitmap) throws IOException{
 
         String SDCardPath = Environment.getExternalStorageDirectory().toString();
         File saveFolder = new File(SDCardPath + AppResPath);
@@ -163,24 +186,22 @@ public class VideoHaarDetectorTest {
             saveFolder.mkdirs();
         }
 
-        int i=0;
-        for (Bitmap b : saveBitmapList){
-            if(b != null) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                b.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
+        if(saveBitmap != null) {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            saveBitmap.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
 
-                i++;
-                File f = new File(saveFolder + outImgName + i + ".jpg");
-                Log.i(TAG, "writing file = " + i +"   "+ f);
-                f.createNewFile();
+            imgCount++;
+            File f = new File(saveFolder + outImgName + imgCount + ".jpg");
+            Log.i(TAG, "writing file = " + imgCount +"   "+ f);
+            f.createNewFile();
 
-                FileOutputStream fo = new FileOutputStream(f);
-                fo.write(bytes.toByteArray());
+            FileOutputStream fo = new FileOutputStream(f);
+            fo.write(bytes.toByteArray());
 
-                fo.flush();
-                fo.close();
-            }
+            fo.flush();
+            fo.close();
         }
     }
-}
 
+
+}

@@ -8,6 +8,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.util.Scanner;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 import org.junit.Test;
 import org.opencv.android.Utils;
@@ -34,11 +38,12 @@ import com.google.android.gms.samples.vision.face.facetracker.R;
 
 public class DetectionBasedTrackerTest {
 
-    private static final String     TAG = "FDT-Test";
+    private static final String     TAG = "FDbT-Test";
     private static final Scalar     DETECT_BOX_COLOR   = new Scalar(255, 255, 255, 255);
     private String                  filename = "FDbT-SolvayRes.png";
     private File                    mCascadeFile;
     private String                  AppResPath = "/myAppRes/";
+    // String                  inFilename = null;
     private DetectionBasedTracker   nativeDetect;
     private CascadeClassifier       mJavaDetector;
 
@@ -53,6 +58,34 @@ public class DetectionBasedTrackerTest {
 
     @Test
     public void OCVDetectTrackTest() throws IOException {
+
+        /*
+        BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
+        System.out.print("Enter filename:  ");
+        stdin.readLine();
+        String inFilename = stdin.readLine();
+
+        stdin.close();
+
+        /*
+        System.out.println("Enter filename --> ");
+
+        Scanner scanner = new Scanner(System.in);
+        if(!scanner.hasNextLine()) {
+        //while(true) {
+            Log.i(TAG,scanner.nextLine());
+            inFilename = scanner.nextLine();
+            //System.out.println("Next Line! ");
+            Log.i(TAG,"Next Line! ");
+            //if (inFilename != null) break;
+        }
+        else Log.i(TAG,"scanner.nextLine " + scanner.nextLine());
+
+        //System.out.println("Input filename is 2 " + inFilename);
+        Log.i(TAG, "Input filename is 5 " + inFilename);
+
+        scanner.close();
+*/
 
         Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
         InputStream is = getResources().openRawResource(R.raw.haarcascade_frontalface_default);
@@ -81,7 +114,8 @@ public class DetectionBasedTrackerTest {
 
         // read input from Assets
         //InputStream testInput = testContext.getAssets().open("11.png");
-        InputStream testInput = testContext.getAssets().open("SolvayConf.jpg");
+        // InputStream testInput = testContext.getAssets().open("SolvayConf.jpg");
+        InputStream testInput = testContext.getAssets().open(filename);
         Bitmap bitmap = BitmapFactory.decodeStream(testInput);
 
         Mat matImg = new Mat();
@@ -91,7 +125,7 @@ public class DetectionBasedTrackerTest {
         MatOfRect rectList = new MatOfRect();
         nativeDetect.detect(matImg, rectList);
         //mJavaDetector.detectMultiScale(matImg, rectList, 1.1, 3, 0, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
-        //       new Size(20,20), new Size(1000,1000));
+        //       new Size(15,15), new Size(1000,1000));
         Rect[] faces = rectList.toArray();
         Utils.bitmapToMat(bitmap, matImg);
         Log.i(TAG, "Number of faces = " + faces.length);

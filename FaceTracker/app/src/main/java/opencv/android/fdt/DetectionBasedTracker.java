@@ -13,7 +13,7 @@ import org.opencv.core.MatOfRect;
 
 public class DetectionBasedTracker
 {
-    private static final String    TAG  = "Fd-Act-DBT";
+    private static final String    TAG  = "FDbT-Act-DBT";
 
     public DetectionBasedTracker(String cascadeName, int minFaceSize) {
         Log.i(TAG, "Inside class DetectionBasedTracker");

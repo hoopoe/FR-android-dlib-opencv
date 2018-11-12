@@ -39,7 +39,7 @@ find_library( # Sets the name of the path variable.
               log-lib
 
               # Specifies the name of the NDK library that
-              # you want CMake to locate.
+              # you want CMake to locate.Expected NDK STL shared object file
               log )
 
 add_library(tensorflow_detector SHARED
@@ -47,10 +47,11 @@ add_library(tensorflow_detector SHARED
 target_include_directories(tensorflow_detector PRIVATE
                            ${CMAKE_SOURCE_DIR})
 
-add_custom_command(TARGET tensorflow_detector POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-       "$ENV{OPENALPR_LIBS}"
-       ${CMAKE_SOURCE_DIR}/src/main/jniLibs)
+# not needed as libraries already copied
+#add_custom_command(TARGET tensorflow_detector POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_directory
+#           "$ENV{OPENALPR_LIBS}"
+#            ${CMAKE_SOURCE_DIR}/src/main/jniLibs)
 
 target_link_libraries(tensorflow_detector
                       android
