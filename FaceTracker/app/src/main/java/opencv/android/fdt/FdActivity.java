@@ -1,21 +1,20 @@
 package opencv.android.fdt;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.View;
 import android.view.WindowManager;
-
-import com.google.android.gms.samples.vision.face.facetracker.R;
+import android.widget.Button;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
-import org.opencv.android.facetracker.*;
+
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
@@ -30,22 +29,40 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+// To switch activity
+import org.opencv.android.facetracker.OpenCvActivity;
+//import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
+import com.google.android.gms.samples.vision.face.facetracker.R;
+
+//import tensorflow.detector.spc.CameraActivityMainSPC;
+
+/**
+ * Created by alorusso on 12/07/18.
+ */
+
 
 public class FdActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private static final String    TAG                 = "Fd-Activity";
-    private static final Scalar    FACE_RECT_COLOR     = new Scalar(0, 255, 0, 255);
-    private Mat mRgba;
-    private Mat                    mGray;
-    private File mCascadeFile;
-    private DetectionBasedTracker  mNativeDetector;
-    private int                    mAbsoluteFaceSize   = 0;
+    private static final Scalar    FACE_RECT_COLOR     = new Scalar(255, 255, 255, 255);
 
+    private Button                 mBtnBack;
+    private Button                 mBtnSwitch;
+
+    private Mat                    mRgba;
+    private Mat                    mGray;
+    private File                   mCascadeFile;
+    private CascadeClassifier      mJavaDetector;
+    private DetectionBasedTracker  mNativeDetector;
+    private int                    mAbsoluteFaceSize   = 1;
     private CameraBridgeViewBase   mOpenCvCameraView;
-    long prev = 0;
-    int counterF=0;
+    private long                   prev = 0;
+    private int                    framenum=0;
+    private Thread mT_dbt;
+    int NumThread_dbt = 0;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+
         @Override
         public void onManagerConnected(int status) {
             switch (status) {
@@ -55,28 +72,32 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
 
                     // Load native library after(!) OpenCV initialization
                     System.loadLibrary("OCV-DetectionBasedTracker");
+                    Log.i(TAG, "DetectionBasedTracker class library loaded");
 
                     try {
                         // load cascade file from application resources
                         InputStream is = getResources().openRawResource(R.raw.haarcascade_frontalface_default);
                         File cascadeDir = getDir("cascade", Context.MODE_PRIVATE);
+                        Log.i(TAG, "after openRawResource");
                         mCascadeFile = new File(cascadeDir, "haarcascade_frontalface_default.xml");
 
-                        FileOutputStream os = new FileOutputStream(mCascadeFile);
                         Log.i(TAG, "cascadeDir " + cascadeDir);
                         Log.i(TAG, "cascadePath " + mCascadeFile.getAbsolutePath());
+
+                        FileOutputStream os = new FileOutputStream(mCascadeFile);
 
                         byte[] buffer = new byte[4096];
                         int bytesRead;
                         while ((bytesRead = is.read(buffer)) != -1) {
                             os.write(buffer, 0, bytesRead);
                         }
-                        is.close();
+
                         os.close();
+                        is.close();
+                        cascadeDir.delete();
 
                         mNativeDetector = new DetectionBasedTracker(mCascadeFile.getAbsolutePath(), 0);
-
-                        cascadeDir.delete();
+                        mJavaDetector = new CascadeClassifier(mCascadeFile.getAbsolutePath());
 
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -93,9 +114,11 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         }
     };
 
+
     public FdActivity() {
         Log.i(TAG, "Instantiated new " + this.getClass());
     }
+
 
     /** Called when the activity is first created. */
     @Override
@@ -107,11 +130,36 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
         setContentView(R.layout.face_detect_surface_view);
 
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.fd_activity_surface_view);
-        mOpenCvCameraView.enableFpsMeter();
         mOpenCvCameraView.setVisibility(CameraBridgeViewBase.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
         Log.i(TAG,"#processor:"+Runtime.getRuntime().availableProcessors());
+        //onListenButton();
     }
+
+
+   /* private void onListenButton() {
+        Log.d(TAG, "called onListenButton");
+        mBtnBack = (Button) findViewById(R.id.btnGMS);
+        mBtnSwitch = (Button) findViewById(R.id.btnTF);
+
+        mBtnBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent myIntent = new Intent(FdActivity.this, OpenCvActivity.class);
+                FdActivity.this.startActivity(myIntent);
+            }
+        });
+
+        mBtnSwitch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent myIntent = new Intent(FdActivity.this, CameraActivityMainSPC.class);
+                FdActivity.this.startActivity(myIntent);
+            }
+        });
+    }*/
+
+
 
     @Override
     public void onPause()
@@ -151,39 +199,64 @@ public class FdActivity extends AppCompatActivity implements CameraBridgeViewBas
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
+        long currentime = 0;
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
-        long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
-        Log.i(TAG,"framerate_onCameraFrame = " + 1000.0/(currentime-prev) + " fps");
+        Log.i(TAG,"In onCameraFrame");
+
+        currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
+        Log.i(TAG,"FdActivity: framerate = " + 1000.0/(currentime-prev) + " fps");
         prev = currentime;
-        Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
+
+        Log.i(TAG,"WIDTH = " + mRgba.width() + "   COLS = " + mRgba.cols());
+        Log.i(TAG,"HEIGHT = " + mRgba.height() + "   ROWS = " + mRgba.rows());
 
 
-        mNativeDetector.setMinFaceSize(mAbsoluteFaceSize);
+        //MatOfRect faces = new MatOfRect();
+        final MatOfRect faces = new MatOfRect();
 
-        MatOfRect faces = new MatOfRect();
+        long start = System.currentTimeMillis();
 
-        counterF++;
-        if (mNativeDetector != null) {
-            mNativeDetector.detect(mGray, faces);}
+        mNativeDetector.detect(mGray, faces);
+       /* Log.i(TAG,"Before Thread: NUM OF FACES = " + faces.size());
 
-             Rect[] facesArray = faces.toArray();
-        Log.i(TAG, "facesArray.length (trackedFaces):"+facesArray.length);//added by mic
-        Log.i(TAG,"#frame:"+ counterF);
-        for (int i = 0; i < facesArray.length; i++) {
-            Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), FACE_RECT_COLOR, 3);
-            Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50,50), 3, 3,
-                    new Scalar(255, 0, 0, 255), 3);
+        //Insert the face detection in a separate Thread---------------------------
+        if(NumThread_dbt<1){
+            mT_dbt = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    NumThread_dbt++;
+                    Log.i(TAG, "Detection thread DBT_START @ #frame:" + framenum+"(NumThreadTDET:"+NumThread_dbt+")");
+                    mNativeDetector.detect(mGray, faces);
+                    Log.i(TAG,"Inside Thread: NUM OF FACES = " + faces.size());
+                    //NumThread_dbt--;
+                    Log.i(TAG, "Detection thread DBT_END @ #frame:" + framenum+"(NumThreadTDET:"+NumThread_dbt+")");
+                }
+            });
+            Log.i(TAG, "Thread_STATE:" +mT_dbt.getState()+ framenum+"(NumThreadTDET:"+NumThread_dbt+")");
+            mT_dbt.start();
+            Log.i(TAG, "Thread_STATE_afterSTART:" +mT_dbt.getState()+ framenum+"(NumThreadTDET:"+NumThread_dbt+")");
 
-          //  Imgproc.rectangle(mGray, facesArray[i].tl(), facesArray[i].br(), new Scalar( 0,0,0), 2);
-           /* Imgproc.putText(mGray, String.valueOf(counterF), new Point(50,50), 3, 3,
-                    new Scalar(255, 0, 0, 255), 3);*/
-        }
+            // tests if this thread is alive
+            System.out.println("status = " + mT_dbt.isAlive());
+        }*/
+       //-------------------------------------------------------------
+
+        long end = System.currentTimeMillis();
+        long duration = end -start;
+        Log.i(TAG,"FdActivity: SAM Native Exectime = " + duration/1000.0 + " sec");
+        Log.i(TAG,"FdActivity: NUM OF FACES = " + faces.size());
+
+        Rect[] facesArray = faces.toArray();
+        for (int i = 0; i < facesArray.length; i++)
+            Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), FACE_RECT_COLOR, 2);
+
+
+        framenum++;
+        Imgproc.putText(mRgba, String.valueOf(framenum), new Point(10,30), 3, 1,
+                new Scalar(255, 0, 0, 255), 3);
 
         return mRgba;
-        //return mGray;
     }
-
-
 }

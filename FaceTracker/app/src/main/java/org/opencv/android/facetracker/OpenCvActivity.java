@@ -59,7 +59,9 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     long prev = 0;
     int counterF=0;
     boolean okThread = false;
+    int NumThreadTDET = 0;
     boolean okThreadT = false;
+    int okThreadT2 = 0;
     int dn = 0;
     int tn = 0;
     int numThread=0;
@@ -70,12 +72,14 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     public Long threadTCpuTime;//new
     private Long mStartThreadCpuTime;//new
     private Long mStartThreadTCpuTime;//new
+    private Thread mtd;
 
     public static MatOfRect detectedFaces;//uncommented here
     int count=0;
     boolean prevEmpty = false;
     boolean currEmpty = false;
 
+    public String trackerName = "OCV-tracker";
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
         @Override
@@ -194,11 +198,11 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         Log.i(TAG,"CH_before_java = " + mRgba.channels());*/
 
         long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
-        Log.i(TAG,"framerate = " + 1000.0/(currentime-prev) + " fps");
-        Log.i(TAG,"Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() +" Rgba.height:"+mRgba.height());
+        Log.i(TAG, "framerate = " + 1000.0 / (currentime - prev) + " fps");
+        Log.i(TAG, "Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() + " Rgba.height:" + mRgba.height());
 
         //compute how long time it's displayed the image----------
-        Log.i(TAG,"1/framerate = " + (currentime-prev)/1000.0 + " [sec]");
+        Log.i(TAG, "1/framerate = " + (currentime - prev) / 1000.0 + " [sec]");
         //--------------------------------------------------------
         prev = currentime;
 
@@ -209,105 +213,78 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
         counterF++;
 
-        Log.i(TAG,"#frame:"+ counterF);
-        if(!okThread) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    okThread=true;
-                    mStartThreadCpuTime = Debug.threadCpuTimeNanos();//new
-                    long start_time1 = SystemClock.currentThreadTimeMillis();
+        Log.i(TAG, "#frame:" + counterF);
 
-                    Log.i(TAG, "Detection thread_START @ #frame:"+counterF);
-                   // detectedFaces.release();
-                    hd.OCvDetect(mRgba, detectedFaces);
-                    if(!detectedFaces.empty()) {
 
-                        detectedFacesArray = detectedFaces.toArray();
-                        for(int i=0;i<detectedFacesArray.length;i++) {
-                            Log.i(TAG, "threadDET_detectedFaces.toArray()["+i+"] (x,y,w,h): " + (int) detectedFaces.toArray()[i].x +", "+
-                                    (int) detectedFaces.toArray()[i].y +", "+
-                                    (int) detectedFaces.toArray()[i].width +", "+
-                                    (int) detectedFaces.toArray()[i].height+" @ #frame:"+counterF);
-                        }
-                        dn=detectedFacesArray.length;
-                        Log.i(TAG,"#detectedFaces_threadDET_:"+dn);
-                        if(dn>0){
-                            newFaceFound = true;
-                            Log.i(TAG, "A new Face is found (threadDET)!");}
+        // Create a thread by passing an Anonymous Runnable.
+        if(NumThreadTDET<1) {
+        mtd = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                NumThreadTDET++;
+                mStartThreadCpuTime = Debug.threadCpuTimeNanos();//new
+               // long start_time1 = SystemClock.currentThreadTimeMillis();
 
-                    }
-                    okThread=false;
-                    Log.i(TAG, "Detection thread_END @ #frame:"+counterF);
-
-                    //Returns the amount of time that the current thread has spent executing code or waiting for certain types of I/O.
-                    threadCpuTime = Debug.threadCpuTimeNanos() - mStartThreadCpuTime;//new
-                    Log.i(TAG, "DETthreadCpuTime [sec] "+(float)threadCpuTime/1000000000+" @ #frame:"+counterF);
-
-                    //Returns milliseconds running in the current thread.
-                    long elapsed_time1 = SystemClock.currentThreadTimeMillis() - start_time1;
-                    Log.i(TAG, "DETdeltaCurrentThreadTimeMillis [sec] "+(float)elapsed_time1/1000+" @ #frame:"+counterF);
+                Log.i(TAG, "Detection thread_START @ #frame:" + counterF+"(NumThreadTDET:"+NumThreadTDET+")");
+                System.out.println("mtd_name: "+ mtd.getName()+mtd.getId()+"mtd_STATUS: " +mtd.isAlive());
+                hd.OCvDetect(mRgba, detectedFaces, counterF);
+                if (!detectedFaces.empty()) {
+                    newFaceFound = true;
+                    detectedFacesArray = detectedFaces.toArray();//to draw detected faces
+                    trackedFaces.fromArray(detectedFacesArray);//here trackedFaces is populated
+                    Log.i(TAG, "A new Face is found (threadDET) @ #frame:" + counterF + "-> trackedFaces is empty:" + trackedFaces.empty());
+                } else {
+                    detectedFaces.release();
                 }
-            }).start();
-        }
 
+                NumThreadTDET--;
+                System.out.println("mtd_name: "+ mtd.getName()+mtd.getId()+" mtd_STATUS: " +mtd.isAlive() + " priority:"+ mtd.getPriority());
+                Log.i(TAG, "Detection thread_END @ #frame:" + counterF+"(NumThreadTDET:"+NumThreadTDET+")");
 
-        if(!okThreadT) {
+                //Returns the amount of time that the current thread has spent executing code or waiting for certain types of I/O.
+                threadCpuTime = Debug.threadCpuTimeNanos() - mStartThreadCpuTime;//new
+                Log.i(TAG, "DETthreadCpuTime [sec] " + (float) threadCpuTime / 1000000000 + " @ #frame:" + counterF);
+
+                //Returns milliseconds running in the current thread.
+             //   long elapsed_time1 = SystemClock.currentThreadTimeMillis() - start_time1;
+             //   Log.i(TAG, "DETdeltaCurrentThreadTimeMillis [sec] " + (float) elapsed_time1 / 1000 + " @ #frame:" + counterF);
+            }
+        });
+        mtd.setPriority(Thread.MAX_PRIORITY);
+        mtd.start();
+        try {
+           mtd.join();
+        } catch(InterruptedException e) { }
+        System.out.println("Executed "+mtd.getName()+mtd.getId()+"!");
+    }
+
+           /* if(okThreadT2<1) {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        okThreadT = true;
+                        okThreadT2++;
                         mStartThreadTCpuTime = Debug.threadCpuTimeNanos();//new
-                        Log.i(TAG, "Tracking thread_START @ #frame:" + counterF);
+                        Log.i(TAG, "Tracking thread_START @ #frame:" + counterF+"(okThreadT2:"+okThreadT2+")");
                         long start_time2 = SystemClock.currentThreadTimeMillis();
-
-                        trackedFaces.release();
-                        //trackedFacesArray = trackedFaces.toArray();
-
-                        if (newFaceFound) {
-                            for(int i=0;i<detectedFaces.toArray().length;i++) {
-                                Log.i(TAG, "(threadTRACK)detectedFaces.toArray()["+i+"] (x,y,w,h): " + (int) detectedFaces.toArray()[i].x +", "+
-                                        (int) detectedFaces.toArray()[i].y +", "+
-                                        (int) detectedFaces.toArray()[i].width +", "+
-                                        (int) detectedFaces.toArray()[i].height);
-                            }
-                            Log.i(TAG, "New faces found -> trackedFaces is populated using detectedFace @ #frame:" + counterF);
-                            trackedFacesArray=detectedFaces.toArray();
-                            Log.i(TAG, "#trackedfaces_ramo1 (threadTRACK): "+trackedFaces.toArray().length);
-                            for (int i = 0; i < trackedFacesArray.length; i++) {
-                                Log.i(TAG, "CONTROLLO_ramo1 (threadTRACK) -> trackedFacesArray["+i+"]  (x,y,w,h): " + trackedFacesArray[i] + " @ #frame:" + counterF);
-                            }
-                            newFaceFound = false;
-                        } else {
-                            if (!trackedFaces.empty()) {
-                                for (int i = 0; i < trackedFaces.toArray().length; i++) {
-                                    Log.i(TAG, "detectedFaces.toArray()[" + i + "] (x,y,w,h): " + (int) trackedFaces.toArray()[i].x + ", " +
-                                            (int) trackedFaces.toArray()[i].y + ", " +
-                                            (int) trackedFaces.toArray()[i].width + ", " +
-                                            (int) trackedFaces.toArray()[i].height);
-                                }
-                                trackedFacesArray = trackedFaces.toArray();
-                            } else {
-                                Log.i(TAG, "trackedFaces is empty @ #frame:" + counterF);
-                            }
-                        }
-
-                        if(trackedFacesArray.length>0) {//serve?
-                            trackedFaces.fromArray(trackedFacesArray);//here trackedFaces is populated
-                        }
-
                         if (!trackedFaces.empty()) {
-                            hd.OCvTrack(mRgba, trackedFaces);
+                            //shortName = hd.OCvTrack(mRgba, trackedFaces, counterF);
+                            hd.OCvTrack(mRgba, trackedFaces, counterF);
+                            Log.i(TAG,"trackerName"+trackerName);
                             if(!trackedFaces.empty()) {
-                                trackedFacesArray = trackedFaces.toArray();
-                                for (int i = 0; i < trackedFacesArray.length; i++) {
-                                    Log.i(TAG, "newTrackedFaces -> trackedFaces[" + i +"] (x,y,w,h): " + trackedFacesArray[i] + " @ #frame:" + counterF);
+                                for (int i = 0; i < trackedFaces.toArray().length; i++) {
+                                    Log.i(TAG, "newTrackedFaces -> trackedFaces[" + i +"] (x,y,w,h): " + trackedFaces.toArray()[i] + " @ #frame:" + counterF);
                                 }
                             }
+                            else {
+                                trackedFaces.release();
+
+                            }
+                            trackedFacesArray = trackedFaces.toArray();
+                            Log.i(TAG, "trackedFacesArray_size"+trackedFacesArray.length +" @ #frame:" + counterF+"(okThreadT2:"+okThreadT2+")");
                         }
 
-                        okThreadT = false;
-                        Log.i(TAG, "Tracking thread_END @ #frame:" + counterF);
+                        okThreadT2--;
+                        Log.i(TAG, "Tracking thread_END @ #frame:" + counterF+"(okThreadT2:"+okThreadT2+")");
                         threadTCpuTime = Debug.threadCpuTimeNanos() - mStartThreadTCpuTime;//new
                         Log.i(TAG, "TRACKthreadCpuTime [sec] "+(float)threadTCpuTime/1000000000+" @ #frame:"+counterF);
 
@@ -316,36 +293,55 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                         Log.i(TAG, "TRACKdeltaCurrentThreadTimeMillis [sec] "+(float)elapsed_time2/1000+" @ #frame:"+counterF);
                     }
                 }).start();
-            }
-
+            }*/
 
         //DRAW stuff---------------------------------------------------------------------------------------
-   
-      //if (detectedFacesArray.length > 0) {
+
         if (!detectedFaces.empty()) {//ok
             Log.i(TAG, "#detectedFacesArray (DRAW):"+detectedFacesArray.length+"@ #frame:"+counterF);
             for (Rect rect : detectedFacesArray) {
                 Imgproc.rectangle(mRgba, rect.tl(), rect.br(), DETECT_BOX_COLOR, 3);
+                /*Imgproc.putText(mRgba, String.valueOf("width:"+rect.width), new Point(rect.br().x, rect.br().y-rect.height), 1, 3,
+                        new Scalar(255, 255, 0, 255), 3);*/
             }
         }
-        /*if (!detectedFaces.empty()) {//okkk (NI)
-            Log.i(TAG, "#detectedFacesArray (DRAW2):"+detectedFaces.toArray().length+"@ #frame:"+counterF);
-            for (int i=0; i<detectedFaces.toArray().length; i++) {
-                Imgproc.rectangle(mRgba, detectedFaces.toArray()[i].tl(), detectedFaces.toArray()[i].br(), DETECT_BOX_COLOR, 3);
-            }
-        }*/
 
-        if (trackedFacesArray.length > 0) {
-        //if (!trackedFaces.empty()) {//ok
+        //if (trackedFacesArray.length > 0) {
+      /*  if (!trackedFaces.empty()) {
             Log.i(TAG, "#trackedFacesArray (DRAW):"+trackedFacesArray.length+"@ #frame:"+counterF);
             for (Rect rect : trackedFacesArray) {
                 Imgproc.rectangle(mRgba, rect.tl(), rect.br(), TRACKER_BOX_COLOR, 13);
              }
-        }
+        }*/
+
+       /* switch (shortName) {
+            case 'K':
+                trackerName = "KCF";
+                break;
+            case 'T':
+                trackerName = "TLD";
+                break;
+            case 'B':
+                trackerName = "Boosting";
+                break;
+            case 'F':
+             trackerName = "MedianFlow";
+             break;
+            case 'M':
+                trackerName = "MIL";
+                break;
+            case 'S':
+                trackerName = "Mosse";
+                break;
+            default:
+                trackerName = "?";
+         }*/
 
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
                     new Scalar(255, 0, 0, 255), 3);
+        /*Imgproc.putText(mRgba, trackerName, new Point(mRgba.rows()/2, 50), 3, 3,
+                new Scalar(255,255,255, 255), 3);*/
 
         //------------------------------------------------------------------------------------------------
 

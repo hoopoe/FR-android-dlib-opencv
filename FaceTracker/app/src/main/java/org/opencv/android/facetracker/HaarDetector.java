@@ -7,6 +7,7 @@ package org.opencv.android.facetracker;
 
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
+import android.util.Log;
 
 public class HaarDetector {
     private static final String TAG = "OCV-HaarDetector";
@@ -21,19 +22,23 @@ public class HaarDetector {
         loadResources();
     }
 
-   /* public void OCvDetect(Mat imageGray, MatOfRect faces) {
-        OpenCVdetector(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
-    }*/
 
-    public void OCvDetect(Mat imageGray, MatOfRect faces) {
-        OpenCVdetector(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
+    public void OCvDetect(Mat imageGray, MatOfRect faces,int counterF) {
+        long start = System.currentTimeMillis();//new
+        OpenCVdetector(imageGray.getNativeObjAddr(), faces.getNativeObjAddr(), counterF);
+        long end = System.currentTimeMillis();
+        long duration = end -start;
+        Log.i(TAG,"FDT-Activity Time " + duration/1000.0 + " sec");
     }
 
-    public void OCvTrack(Mat imageGray, MatOfRect faces) {
-        OpenCVtracker(imageGray.getNativeObjAddr(), faces.getNativeObjAddr());
-    }
 
-    private native void OpenCVdetector(long imageGray, long faces);
-    private native void OpenCVtracker(long imageGray, long faces);
+    public void OCvTrack(Mat imageGray, MatOfRect faces,int counterF) {
+        OpenCVtracker(imageGray.getNativeObjAddr(), faces.getNativeObjAddr(), counterF);
+    }
+    private native void OpenCVdetector(long imageGray, long faces, int counterF);
+    private native void OpenCVtracker(long imageGray, long faces, int counterF);
+
+
     private native void loadResources();
+
 }
