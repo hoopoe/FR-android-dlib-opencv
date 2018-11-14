@@ -94,8 +94,9 @@ std::vector<Rect> detectRF(Mat &rgba) {
 
     std::vector<Rect> faces = {};
     std::vector<Rect> realfaces = {};
-    //face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
-    face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 5, 0 , Size(15,15), Size(1000,1000), true );//1.1, 3, 0 , Size(15,15), Size(1000,1000), true
+    face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 5, 0|CV_HAAR_SCALE_IMAGE, Size(), Size(1000,1000), true );
+    //face_cascade.detectMultiScale( gray, faces, reject_levels, weights, 1.1, 5, 0 , Size(15,15), Size(1000,1000), true );//1.1, 3, 0 , Size(15,15), Size(1000,1000), true
+
     int i=0;
     for(vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ ) {
         LOGI("weights[%i]:%f, sizeFace[i]: %i", i, weights[i], faces[i].width);
@@ -290,7 +291,7 @@ Java_org_opencv_android_facetracker_HaarDetector_OpenCVdetector(JNIEnv *env, jcl
 
     vector<Rect> BBfaces= {};//detectedFaces
 
-    ////BBfaces = detectRF(origImg);//The detection is performed on the whole frame
+    //BBfaces = detectRF(origImg);//The detection is performed on the whole frame
 
     //Search for faces into a cropped frame to make faster the detection
     //The hypothesis is that the possible faces are inside the central part of the whole frame

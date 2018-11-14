@@ -217,7 +217,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
 
         // Create a thread by passing an Anonymous Runnable.
-        if(NumThreadTDET<1) {
+        if(NumThreadTDET<2) {
         mtd = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -238,7 +238,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                 }
 
                 NumThreadTDET--;
-                System.out.println("mtd_name: "+ mtd.getName()+mtd.getId()+" mtd_STATUS: " +mtd.isAlive() + " priority:"+ mtd.getPriority());
+                System.out.println("mtd_name: "+ mtd.getName()+mtd.getId()+" (STATUS: " +mtd.isAlive() + " priority:"+ mtd.getPriority()+")");
                 Log.i(TAG, "Detection thread_END @ #frame:" + counterF+"(NumThreadTDET:"+NumThreadTDET+")");
 
                 //Returns the amount of time that the current thread has spent executing code or waiting for certain types of I/O.
@@ -253,9 +253,9 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mtd.setPriority(Thread.MAX_PRIORITY);
         mtd.start();
         try {
-           mtd.join();
-        } catch(InterruptedException e) { }
-        System.out.println("Executed "+mtd.getName()+mtd.getId()+"!");
+           mtd.join(20);
+        } catch(InterruptedException e) {}
+        System.out.println("Executed "+mtd.getName()+mtd.getId()+" (Status: "+mtd.isAlive()+ "IsInterrupted: "+mtd.isInterrupted()+")!");
     }
 
            /* if(okThreadT2<1) {
