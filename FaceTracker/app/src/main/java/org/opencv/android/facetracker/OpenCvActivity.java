@@ -38,7 +38,7 @@ import java.util.List;//mic
 //import java.io.IOException;
 //import com.digi.android.system.cpu.CPUManager;
 import android.os.Debug;//new
-
+import java.util.concurrent.LinkedBlockingQueue;//for Data structure
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -80,6 +80,165 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     boolean currEmpty = false;
 
     public String trackerName = "OCV-tracker";
+
+    //new***************************************************************************
+
+    //Data Structure (that is an approximation of C++ struct)
+    final public class DataStructure {
+        private Mat frame = null;
+        private int FrameNumber = 0;
+
+        public DataStructure() {
+            this.frame= null;
+            this.FrameNumber = 0;
+        }
+        // constructor
+        public DataStructure(Mat frame, int FrameNumber) {
+            this.frame= frame;
+            this.FrameNumber = FrameNumber;
+        }
+
+        // getter
+        public Mat getFrameDS() { return frame; }
+        public int getFrameNumberDS() { return FrameNumber; }
+
+        // setter
+        public void setFrameDS(Mat frame) { this.frame = frame; }
+        public void setFrameNumberDS(int FrameNumber) { this.FrameNumber = FrameNumber; }
+    }
+
+    final DataStructure ds = new DataStructure();
+    final LinkedBlockingQueue<DataStructure> queue = new LinkedBlockingQueue<>(5);//remove capacity
+
+    public class DataManager {
+
+        public void DataManager() {
+
+            //sanity-check---------------------------------------
+            //print queue elements
+            System.out.println("DM_Queue contains\t"+queue+" (queue_length: "+queue.toArray().length+")");
+            Object[] array = queue.toArray();
+            //print array's elements
+            System.out.println("(The array contains\t");
+            for(Object i:array){
+                System.out.println(i+"\t");
+            }
+            System.out.println(")");
+            //--------------------------------------------------------------
+
+
+            Producer producer = new Producer(queue);//DetThread & TrackThread
+            ObservingConsumer obsConsumer = new ObservingConsumer(queue, producer);//TrackThread
+            RemovingConsumer remConsumer = new RemovingConsumer(queue, producer);
+
+            Thread producerThread = new Thread(producer);
+            Thread obsConsumerThread = new Thread(obsConsumer);
+            Thread remConsumerThread = new Thread(remConsumer);
+
+            producerThread.start();
+            obsConsumerThread.start();
+            remConsumerThread.start();
+        }
+    }
+
+    //DET thread create and populate Data Structure (struct)
+    public class Producer implements Runnable {
+        private LinkedBlockingQueue queue;
+        private boolean running;
+        public Producer(LinkedBlockingQueue queue) {
+            this.queue = queue;
+            running = true;
+        }
+        // We need to check if the producer thread is
+        // Still running, and this method will return
+        // the state (running/stopped).
+        public boolean isRunning() {
+            return running;
+        }
+        @Override
+        public void run() {
+
+            // We are adding elements using put() which waits
+            // until it can actually insert elements if there is
+            // not space in the queue.
+            if (counterF>0) {
+                //store frame with relative FrameNumber
+                try {
+                    queue.put(ds);
+                    System.out.println("P\tAdding DataStucture (#frame: " + ds.getFrameNumberDS()+")\t(thread-"+Thread.currentThread().getName()+Thread.currentThread().getId()+" -> STATUS: "+Thread.currentThread().getState()+")");
+                    //sanity check------------------
+                    // print queue elements
+                    System.out.println("P_Queue contains\t"+queue);
+
+                    Object[] array = queue.toArray();
+                    //print array's elements
+                    System.out.println("(The array contains\t");
+                    for(Object i:array){
+                        System.out.println(i+"\t");
+                    }
+                    System.out.println(")");
+                    //-------------------------------
+
+                    Thread.sleep(68);//34 // (old value: 1000)
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("P Completed.");
+            running = false;
+        }
+    }
+
+    public class ObservingConsumer implements Runnable {
+        private LinkedBlockingQueue queue;
+        private Producer producer;
+        public ObservingConsumer(LinkedBlockingQueue queue, Producer producer) {
+            this.queue = queue;
+            this.producer = producer;
+        }
+
+        @Override
+        public void run() {
+            // As long as the producer is running,
+            // we want to check for elements.
+            while (producer.isRunning()) {
+                System.out.println("OC\tElements right now:\t" + queue);
+                try {
+                    Thread.sleep(34);//68//old value:2000)
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("OC Completed! Final elements in the queue:\t" + queue);
+        }
+    }
+
+    public class RemovingConsumer implements Runnable {
+        private LinkedBlockingQueue queue;
+        private Producer producer;
+        RemovingConsumer(LinkedBlockingQueue queue, Producer producer) {
+            this.queue = queue;
+            this.producer = producer;
+        }
+
+        @Override
+        public void run() {
+            // As long as the producer is running,
+            // we remove elements from the queue.
+            while (producer.isRunning()) {
+                try {
+                    //////System.out.println("RC\tRemoving element: " + queue.take());
+                    System.out.println("RC\tRemovingConsumer\t(queue.toArray().length:\t" + queue.toArray().length+"\tqueue: "+queue);
+                    Thread.sleep(68);//old value:2000)
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("RC completed.");
+        }
+    }
+//************************************************************************************
+
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
         @Override
@@ -337,6 +496,18 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                 trackerName = "?";
          }*/
 
+
+        //avvio consumer-producer---------------------------------------------
+
+        //create a struct in java containing a clone of the input rgba (Frame) with corresponding FrameNumber (counterF)
+        final DataStructure ds=new DataStructure(mRgba.clone(),counterF);
+        System.out.println("OpencvActivity -> Ds elements: (frame.ch: "+ds.getFrameDS().channels()+", #frame: "+ds.getFrameNumberDS()+")");
+
+        DataManager dm=new DataManager();
+        dm.DataManager();
+        System.out.println("OpencvActivity -> DataManager CREATED");
+
+        //avvio consumer-producer---------------------------------------------
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
                     new Scalar(255, 0, 0, 255), 3);
