@@ -34,6 +34,8 @@ import android.widget.RelativeLayout;
 import com.google.android.gms.samples.vision.face.facetracker.R;
 import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import com.google.android.gms.vision.face.Face;
+
+import java.io.DataInputStream;
 import java.util.List;//mic
 //import java.io.IOException;
 //import com.digi.android.system.cpu.CPUManager;
@@ -48,49 +50,23 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     private static final Scalar cyan_BOX_COLOR   = new Scalar(0, 255, 255, 255);//blue
     private Mat mRgba;
     private Mat mGray;
-    private Mat mRgba_crop;
     private CameraBridgeViewBase mOpenCvCameraView;
-    private RelativeLayout       mRelativeLayout;
-    private Camera               mCamera;
-    private CascadeClassifier    mJavaDetector;
     HaarDetector hd = new HaarDetector();
     Button mBtnSwitch;
-    int cameraId = -1;
-    long prev = 0;
     int counterF=0;
-    boolean okThread = false;
-    int NumThreadTDET = 0;
-    boolean okThreadT = false;
-    int okThreadT2 = 0;
-    int dn = 0;
-    int tn = 0;
-    int numThread=0;
-    boolean FirstTime = true;
-    boolean newFaceFound = false;
-    //volatile boolean newFaceFound = false;
-    public Long threadCpuTime;//new
-    public Long threadTCpuTime;//new
-    private Long mStartThreadCpuTime;//new
-    private Long mStartThreadTCpuTime;//new
-    private Thread mtd;
-
-    public static MatOfRect detectedFaces;//uncommented here
-    int count=0;
-    boolean prevEmpty = false;
-    boolean currEmpty = false;
 
     public String trackerName = "OCV-tracker";
-
-    //new***************************************************************************
+    final DataStructure ds = new DataStructure();//contains all usefull Data (struct)
+    final LinkedBlockingQueue<DataStructure> queue = new LinkedBlockingQueue<>(5);//LBQ of all useful Data (struct)
 
     //Data Structure (that is an approximation of C++ struct)
     final public class DataStructure {
-        private Mat frame = null;
-        private int FrameNumber = 0;
+        private Mat frame;
+        private int FrameNumber;
 
         public DataStructure() {
-            this.frame= null;
-            this.FrameNumber = 0;
+            this.frame= mRgba;
+            this.FrameNumber = 1000;
         }
         // constructor
         public DataStructure(Mat frame, int FrameNumber) {
@@ -100,35 +76,24 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
         // getter
         public Mat getFrameDS() { return frame; }
+
         public int getFrameNumberDS() { return FrameNumber; }
 
         // setter
-        public void setFrameDS(Mat frame) { this.frame = frame; }
-        public void setFrameNumberDS(int FrameNumber) { this.FrameNumber = FrameNumber; }
+        public void storeFrameDS(Mat frame) { this.frame = frame; }
+        public void storeFrameNumberDS(int FrameNumber) { this.FrameNumber = FrameNumber; }
+
     }
 
-    final DataStructure ds = new DataStructure();
-    final LinkedBlockingQueue<DataStructure> queue = new LinkedBlockingQueue<>(5);//remove capacity
 
     public class DataManager {
 
         public void DataManager() {
 
-            //sanity-check---------------------------------------
-            //print queue elements
             System.out.println("DM_Queue contains\t"+queue+" (queue_length: "+queue.toArray().length+")");
-            Object[] array = queue.toArray();
-            //print array's elements
-            System.out.println("(The array contains\t");
-            for(Object i:array){
-                System.out.println(i+"\t");
-            }
-            System.out.println(")");
-            //--------------------------------------------------------------
 
-
-            Producer producer = new Producer(queue);//DetThread & TrackThread
-            ObservingConsumer obsConsumer = new ObservingConsumer(queue, producer);//TrackThread
+            Producer producer = new Producer(queue);//Insert into LBQ all useful Data (struct)
+            ObservingConsumer obsConsumer = new ObservingConsumer(queue, producer);
             RemovingConsumer remConsumer = new RemovingConsumer(queue, producer);
 
             Thread producerThread = new Thread(producer);
@@ -141,11 +106,11 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         }
     }
 
-    //DET thread create and populate Data Structure (struct)
+    //Inserts DataStructure (struct) into the LinkedBlockingQueue
     public class Producer implements Runnable {
-        private LinkedBlockingQueue queue;
+        final private LinkedBlockingQueue<DataStructure> queue;
         private boolean running;
-        public Producer(LinkedBlockingQueue queue) {
+        public Producer(LinkedBlockingQueue<DataStructure> queue) {
             this.queue = queue;
             running = true;
         }
@@ -161,25 +126,13 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             // We are adding elements using put() which waits
             // until it can actually insert elements if there is
             // not space in the queue.
-            if (counterF>0) {
+            if (counterF>=0) {
                 //store frame with relative FrameNumber
                 try {
+                    DataStructure ds=new DataStructure(mRgba,counterF);//contains all usefull Data (struct)
                     queue.put(ds);
                     System.out.println("P\tAdding DataStucture (#frame: " + ds.getFrameNumberDS()+")\t(thread-"+Thread.currentThread().getName()+Thread.currentThread().getId()+" -> STATUS: "+Thread.currentThread().getState()+")");
-                    //sanity check------------------
-                    // print queue elements
-                    System.out.println("P_Queue contains\t"+queue);
-
-                    Object[] array = queue.toArray();
-                    //print array's elements
-                    System.out.println("(The array contains\t");
-                    for(Object i:array){
-                        System.out.println(i+"\t");
-                    }
-                    System.out.println(")");
-                    //-------------------------------
-
-                    Thread.sleep(68);//34 // (old value: 1000)
+                    Thread.sleep(34); // (old value: 1000)
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -190,9 +143,9 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     }
 
     public class ObservingConsumer implements Runnable {
-        private LinkedBlockingQueue queue;
+        private LinkedBlockingQueue<DataStructure>  queue;
         private Producer producer;
-        public ObservingConsumer(LinkedBlockingQueue queue, Producer producer) {
+        public ObservingConsumer(LinkedBlockingQueue<DataStructure> queue, Producer producer) {
             this.queue = queue;
             this.producer = producer;
         }
@@ -202,9 +155,24 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             // As long as the producer is running,
             // we want to check for elements.
             while (producer.isRunning()) {
-                System.out.println("OC\tElements right now:\t" + queue);
+                //System.out.println("OC\tElements right now:\t" + queue);
+
+                // find head of linkedQueue using peek() method
+                DataStructure head = queue.peek();
+
+                if (head !=null) {
+                    // print head of queue
+                    System.out.println("OC\tHead of Queue is: " + head);
+                    System.out.println("OC\tframe_channel(): " + head.getFrameDS().channels());
+                    System.out.println("OC\tframeNumber: " + head.getFrameNumberDS());
+                }
+                else
+                {
+                    System.out.println("OC\tQueue is empty");
+                }
+
                 try {
-                    Thread.sleep(34);//68//old value:2000)
+                    Thread.sleep(68);//68//old value:2000)
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -214,9 +182,10 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     }
 
     public class RemovingConsumer implements Runnable {
-        private LinkedBlockingQueue queue;
+        //private LinkedBlockingQueue queue;
+        private LinkedBlockingQueue<DataStructure>  queue;
         private Producer producer;
-        RemovingConsumer(LinkedBlockingQueue queue, Producer producer) {
+        RemovingConsumer(LinkedBlockingQueue<DataStructure> queue, Producer producer) {
             this.queue = queue;
             this.producer = producer;
         }
@@ -227,7 +196,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             // we remove elements from the queue.
             while (producer.isRunning()) {
                 try {
-                    //////System.out.println("RC\tRemoving element: " + queue.take());
+                    System.out.println("RC\tRemoving element: " + queue.take());
                     System.out.println("RC\tRemovingConsumer\t(queue.toArray().length:\t" + queue.toArray().length+"\tqueue: "+queue);
                     Thread.sleep(68);//old value:2000)
                 } catch (InterruptedException e) {
@@ -237,7 +206,9 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             System.out.println("RC completed.");
         }
     }
-//************************************************************************************
+
+
+
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 
@@ -248,15 +219,6 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                     Log.d(TAG, "OpenCV loaded successfully");
                     // Load native library after(!) OpenCV initialization
                     hd.loadNative();
-                   //uncommented here================================
-                    try{
-                        detectedFaces = new MatOfRect();
-                        Log.i(TAG, "detectedFaces Creation: ");
-                    }catch (Exception e) {
-                        e.printStackTrace();
-                        Log.e(TAG, "Failed detectedFace creation: " + e);
-                    }
-                    //==============================
                     mOpenCvCameraView.enableView();
                 }
                 break;
@@ -344,8 +306,6 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mOpenCvCameraView.disableView();
     }
 
-    private Rect[] detectedFacesArray = {};
-    private Rect[] trackedFacesArray = {};
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Log.d(TAG, "called onCameraFrame");
@@ -353,171 +313,22 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
-     /*   Imgproc.cvtColor(mRgba,mRgba, Imgproc.COLOR_RGBA2RGB);//new
-        Log.i(TAG,"CH_before_java = " + mRgba.channels());*/
-
-        long currentime = SystemClock.elapsedRealtime(); // elapsed time is measured in milliseconds
-        Log.i(TAG, "framerate = " + 1000.0 / (currentime - prev) + " fps");
-        Log.i(TAG, "Rgba.rows: " + mRgba.rows() + " Rgba.cols: " + mRgba.cols() + " Rgba.width" + mRgba.width() + " Rgba.height:" + mRgba.height());
-
-        //compute how long time it's displayed the image----------
-        Log.i(TAG, "1/framerate = " + (currentime - prev) / 1000.0 + " [sec]");
-        //--------------------------------------------------------
-        prev = currentime;
-
-
-        //final MatOfRect detectedFaces = new MatOfRect();//commented here
-        final MatOfRect trackedFaces = new MatOfRect();
-
 
         counterF++;
 
         Log.i(TAG, "#frame:" + counterF);
 
 
-        // Create a thread by passing an Anonymous Runnable.
-        if(NumThreadTDET<2) {
-        mtd = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                NumThreadTDET++;
-                mStartThreadCpuTime = Debug.threadCpuTimeNanos();//new
-               // long start_time1 = SystemClock.currentThreadTimeMillis();
-
-                Log.i(TAG, "Detection thread_START @ #frame:" + counterF+"(NumThreadTDET:"+NumThreadTDET+")");
-                System.out.println("mtd_name: "+ mtd.getName()+mtd.getId()+"mtd_STATUS: " +mtd.isAlive());
-                hd.OCvDetect(mRgba, detectedFaces, counterF);
-                if (!detectedFaces.empty()) {
-                    newFaceFound = true;
-                    detectedFacesArray = detectedFaces.toArray();//to draw detected faces
-                    trackedFaces.fromArray(detectedFacesArray);//here trackedFaces is populated
-                    Log.i(TAG, "A new Face is found (threadDET) @ #frame:" + counterF + "-> trackedFaces is empty:" + trackedFaces.empty());
-                } else {
-                    detectedFaces.release();
-                }
-
-                NumThreadTDET--;
-                System.out.println("mtd_name: "+ mtd.getName()+mtd.getId()+" (STATUS: " +mtd.isAlive() + " priority:"+ mtd.getPriority()+")");
-                Log.i(TAG, "Detection thread_END @ #frame:" + counterF+"(NumThreadTDET:"+NumThreadTDET+")");
-
-                //Returns the amount of time that the current thread has spent executing code or waiting for certain types of I/O.
-                threadCpuTime = Debug.threadCpuTimeNanos() - mStartThreadCpuTime;//new
-                Log.i(TAG, "DETthreadCpuTime [sec] " + (float) threadCpuTime / 1000000000 + " @ #frame:" + counterF);
-
-                //Returns milliseconds running in the current thread.
-             //   long elapsed_time1 = SystemClock.currentThreadTimeMillis() - start_time1;
-             //   Log.i(TAG, "DETdeltaCurrentThreadTimeMillis [sec] " + (float) elapsed_time1 / 1000 + " @ #frame:" + counterF);
-            }
-        });
-        mtd.setPriority(Thread.MAX_PRIORITY);
-        mtd.start();
-        try {
-           mtd.join(20);
-        } catch(InterruptedException e) {}
-        System.out.println("Executed "+mtd.getName()+mtd.getId()+" (Status: "+mtd.isAlive()+ "IsInterrupted: "+mtd.isInterrupted()+")!");
-    }
-
-           /* if(okThreadT2<1) {
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        okThreadT2++;
-                        mStartThreadTCpuTime = Debug.threadCpuTimeNanos();//new
-                        Log.i(TAG, "Tracking thread_START @ #frame:" + counterF+"(okThreadT2:"+okThreadT2+")");
-                        long start_time2 = SystemClock.currentThreadTimeMillis();
-                        if (!trackedFaces.empty()) {
-                            //shortName = hd.OCvTrack(mRgba, trackedFaces, counterF);
-                            hd.OCvTrack(mRgba, trackedFaces, counterF);
-                            Log.i(TAG,"trackerName"+trackerName);
-                            if(!trackedFaces.empty()) {
-                                for (int i = 0; i < trackedFaces.toArray().length; i++) {
-                                    Log.i(TAG, "newTrackedFaces -> trackedFaces[" + i +"] (x,y,w,h): " + trackedFaces.toArray()[i] + " @ #frame:" + counterF);
-                                }
-                            }
-                            else {
-                                trackedFaces.release();
-
-                            }
-                            trackedFacesArray = trackedFaces.toArray();
-                            Log.i(TAG, "trackedFacesArray_size"+trackedFacesArray.length +" @ #frame:" + counterF+"(okThreadT2:"+okThreadT2+")");
-                        }
-
-                        okThreadT2--;
-                        Log.i(TAG, "Tracking thread_END @ #frame:" + counterF+"(okThreadT2:"+okThreadT2+")");
-                        threadTCpuTime = Debug.threadCpuTimeNanos() - mStartThreadTCpuTime;//new
-                        Log.i(TAG, "TRACKthreadCpuTime [sec] "+(float)threadTCpuTime/1000000000+" @ #frame:"+counterF);
-
-                        //Returns milliseconds running in the current thread.
-                        long elapsed_time2 = SystemClock.currentThreadTimeMillis() - start_time2;
-                        Log.i(TAG, "TRACKdeltaCurrentThreadTimeMillis [sec] "+(float)elapsed_time2/1000+" @ #frame:"+counterF);
-                    }
-                }).start();
-            }*/
-
-        //DRAW stuff---------------------------------------------------------------------------------------
-
-        if (!detectedFaces.empty()) {//ok
-            Log.i(TAG, "#detectedFacesArray (DRAW):"+detectedFacesArray.length+"@ #frame:"+counterF);
-            for (Rect rect : detectedFacesArray) {
-                Imgproc.rectangle(mRgba, rect.tl(), rect.br(), DETECT_BOX_COLOR, 3);
-                /*Imgproc.putText(mRgba, String.valueOf("width:"+rect.width), new Point(rect.br().x, rect.br().y-rect.height), 1, 3,
-                        new Scalar(255, 255, 0, 255), 3);*/
-            }
-        }
-
-        //if (trackedFacesArray.length > 0) {
-      /*  if (!trackedFaces.empty()) {
-            Log.i(TAG, "#trackedFacesArray (DRAW):"+trackedFacesArray.length+"@ #frame:"+counterF);
-            for (Rect rect : trackedFacesArray) {
-                Imgproc.rectangle(mRgba, rect.tl(), rect.br(), TRACKER_BOX_COLOR, 13);
-             }
-        }*/
-
-       /* switch (shortName) {
-            case 'K':
-                trackerName = "KCF";
-                break;
-            case 'T':
-                trackerName = "TLD";
-                break;
-            case 'B':
-                trackerName = "Boosting";
-                break;
-            case 'F':
-             trackerName = "MedianFlow";
-             break;
-            case 'M':
-                trackerName = "MIL";
-                break;
-            case 'S':
-                trackerName = "Mosse";
-                break;
-            default:
-                trackerName = "?";
-         }*/
-
-
-        //avvio consumer-producer---------------------------------------------
-
-        //create a struct in java containing a clone of the input rgba (Frame) with corresponding FrameNumber (counterF)
-        final DataStructure ds=new DataStructure(mRgba.clone(),counterF);
-        System.out.println("OpencvActivity -> Ds elements: (frame.ch: "+ds.getFrameDS().channels()+", #frame: "+ds.getFrameNumberDS()+")");
 
         DataManager dm=new DataManager();
-        dm.DataManager();
         System.out.println("OpencvActivity -> DataManager CREATED");
+        dm.DataManager();
+        System.out.println("OpencvActivity -> DataManager STARTED");
 
-        //avvio consumer-producer---------------------------------------------
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
-                    new Scalar(255, 0, 0, 255), 3);
-        /*Imgproc.putText(mRgba, trackerName, new Point(mRgba.rows()/2, 50), 3, 3,
-                new Scalar(255,255,255, 255), 3);*/
-
-        //------------------------------------------------------------------------------------------------
-
+                new Scalar(255, 0, 0, 255), 3);
 
         return mRgba;
     }
-
 }
