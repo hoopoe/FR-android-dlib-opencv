@@ -4,43 +4,21 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfRect;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.objdetect.CascadeClassifier;
-
-import android.app.Activity;
-import android.content.Context;
-import android.hardware.Camera;
-import android.hardware.Camera.CameraInfo;
-import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.content.Intent;
-import android.util.SparseArray;
-import android.view.Display;
-import android.view.Surface;
-import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.RelativeLayout;
-
 import com.google.android.gms.samples.vision.face.facetracker.R;
 import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
-import com.google.android.gms.vision.face.Face;
-
-import java.io.DataInputStream;
-import java.util.List;//mic
-//import java.io.IOException;
-//import com.digi.android.system.cpu.CPUManager;
-import android.os.Debug;//new
 import java.util.concurrent.LinkedBlockingQueue;//for Data structure
+import java.util.Iterator;
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -59,7 +37,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     final DataStructure ds = new DataStructure();//contains all usefull Data (struct)
     final LinkedBlockingQueue<DataStructure> queue = new LinkedBlockingQueue<>(5);//LBQ of all useful Data (struct)
 
-    //Data Structure (that is an approximation of C++ struct)
+    //Data Structure (that is an equivalent of C++ struct) contains all useful data for drawing
     final public class DataStructure {
         private Mat frame;
         private int FrameNumber;
@@ -76,7 +54,6 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
         // getter
         public Mat getFrameDS() { return frame; }
-
         public int getFrameNumberDS() { return FrameNumber; }
 
         // setter
@@ -87,6 +64,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
 
     public class DataManager {
+
+        private static final long SLEEP_INTERVAL_MS = 34;
 
         public void DataManager() {
 
@@ -101,8 +80,27 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             Thread remConsumerThread = new Thread(remConsumer);
 
             producerThread.start();
+            Log.i(TAG, "DM\tStarted P "+producerThread.getName()+producerThread.getId() +"(status: "+producerThread.getState()+")");
+
+            try {
+                producerThread.join(SLEEP_INTERVAL_MS);
+                Log.i(TAG, "DM\tExecuted P "+producerThread.getName()+producerThread.getId() +"(status: "+producerThread.getState()+")");
+            } catch(InterruptedException e) {
+                e.printStackTrace();
+                Log.e(TAG, "DM\tFailed join P: " + e +"(threadName: "+producerThread.getName()+producerThread.getId()+"(status: "+producerThread.getState()+")");
+            }
+
             obsConsumerThread.start();
-            remConsumerThread.start();
+            try {
+                obsConsumerThread.join(SLEEP_INTERVAL_MS);
+                Log.e(TAG, "DM\tExecuted OC "+obsConsumerThread.getName()+obsConsumerThread.getId() +"(status: "+obsConsumerThread.getState()+")");
+            } catch(InterruptedException e) {
+                e.printStackTrace();
+                Log.e(TAG, "DM\tFailed join OC: " + e +"(threadName: "+obsConsumerThread.getName()+obsConsumerThread.getId()+"(status: "+obsConsumerThread.getState()+")");
+            }
+
+
+            //remConsumerThread.start();
         }
     }
 
@@ -110,6 +108,7 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     public class Producer implements Runnable {
         final private LinkedBlockingQueue<DataStructure> queue;
         private boolean running;
+        //private static final long SLEEP_INTERVAL_MS = 34;
         public Producer(LinkedBlockingQueue<DataStructure> queue) {
             this.queue = queue;
             running = true;
@@ -126,19 +125,28 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             // We are adding elements using put() which waits
             // until it can actually insert elements if there is
             // not space in the queue.
-            if (counterF>=0) {
-                //store frame with relative FrameNumber
+            if (counterF>0) {
+                Log.i(TAG, "P\tStarted "+Thread.currentThread().getName()+Thread.currentThread().getId() +"(status: "+Thread.currentThread().getState()+")");
+                //store current frame with relative FrameNumber
                 try {
                     DataStructure ds=new DataStructure(mRgba,counterF);//contains all usefull Data (struct)
                     queue.put(ds);
-                    System.out.println("P\tAdding DataStucture (#frame: " + ds.getFrameNumberDS()+")\t(thread-"+Thread.currentThread().getName()+Thread.currentThread().getId()+" -> STATUS: "+Thread.currentThread().getState()+")");
-                    Thread.sleep(34); // (old value: 1000)
+                    System.out.println("P\tAdding DataStructure (#frame: " + ds.getFrameNumberDS()+")\t("+Thread.currentThread().getName()+Thread.currentThread().getId()+" -> STATUS: "+Thread.currentThread().getState()+")");
+                    //Thread.sleep(SLEEP_INTERVAL_MS); //34 (old value: 1000)
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
             System.out.println("P Completed.");
-            running = false;
+            //===========================
+            //running = false;
+            synchronized (Producer.this) {
+                running = false;
+                //use notify() method to send notification to the other threads that are waiting
+                Producer.this.notify();
+            }
+            //===========================
+
         }
     }
 
@@ -157,25 +165,46 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             while (producer.isRunning()) {
                 //System.out.println("OC\tElements right now:\t" + queue);
 
+                // create Iterator of linkedQueue using iterator() method
+                Iterator<DataStructure> listOfItems = queue.iterator();
+
                 // find head of linkedQueue using peek() method
                 DataStructure head = queue.peek();
 
-                if (head !=null) {
+                if(head !=null) {
                     // print head of queue
                     System.out.println("OC\tHead of Queue is: " + head);
                     System.out.println("OC\tframe_channel(): " + head.getFrameDS().channels());
                     System.out.println("OC\tframeNumber: " + head.getFrameNumberDS());
+
+                    //print queue items
+                    /*while (listOfItems.hasNext()) {
+                        System.out.println("listOfItems: (frame_ch:"+listOfItems.next().getFrameDS().channels()+", frameNumber:" +listOfItems.next().getFrameNumberDS());
+                    }*/
+
+                    //print queue items
+                   /* try {
+                        while (listOfItems.hasNext()) {
+                            System.out.println("listOfItems: (frame_ch:" + listOfItems.next().getFrameDS().channels() + ", frameNumber:" + listOfItems.next().getFrameNumberDS());
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Log.e(TAG, "OC\tException");
+                    }*/
+
                 }
                 else
                 {
                     System.out.println("OC\tQueue is empty");
                 }
 
-                try {
+
+
+                /*try {
                     Thread.sleep(68);//68//old value:2000)
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                }
+                }*/
             }
             System.out.println("OC Completed! Final elements in the queue:\t" + queue);
         }
@@ -313,17 +342,15 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
 
-
         counterF++;
 
         Log.i(TAG, "#frame:" + counterF);
-
-
-
         DataManager dm=new DataManager();
         System.out.println("OpencvActivity -> DataManager CREATED");
         dm.DataManager();
         System.out.println("OpencvActivity -> DataManager STARTED");
+
+
 
 
         Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
