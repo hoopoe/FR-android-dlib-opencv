@@ -72,6 +72,8 @@ public class CustomDetector extends Detector<Face> {
 
         mFrame = frame;
 
+        Log.i(TAG, " CustomDetector W H = " + mFrame.getMetadata().getWidth() + " " + mFrame.getMetadata().getHeight());
+
         frameRotation = frame.getMetadata().getRotation();
 
         if (!IsBusy && y > 0 && recognitionHandler != null) {

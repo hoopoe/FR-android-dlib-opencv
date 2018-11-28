@@ -231,7 +231,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .setClassificationType(FaceDetector.NO_CLASSIFICATIONS)
                 .setProminentFaceOnly(false)
                 .setMode(FaceDetector.ACCURATE_MODE)
-                .setMinFaceSize(0.015f)
+                .setMinFaceSize(0.003f)
                 .build();
 
         mPictureDetector = new FaceDetector.Builder(context)
@@ -239,7 +239,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .setClassificationType(FaceDetector.NO_CLASSIFICATIONS)
                 .setProminentFaceOnly(true)
                 .setMode(FaceDetector.ACCURATE_MODE)
-                .setMinFaceSize(0.015f)  // 80 / 5312 detect up to 80 pixels head width
+                .setMinFaceSize(0.003f)  // 80 / 5312 detect up to 80 pixels head width
                 .build();
 
         customDetector = new CustomDetector(detector, mFaceRecognizer);
@@ -280,7 +280,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .setRequestedPreviewSize(w, h)
                 .setFacing(cameraFacing)
                 .setAutoFocusEnabled(true)
-                .setRequestedFps(10)
+                .setRequestedFps(30)
                 .build();
 
         mBtnDetect.setOnClickListener(new View.OnClickListener() {
