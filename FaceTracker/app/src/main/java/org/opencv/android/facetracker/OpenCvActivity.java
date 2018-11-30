@@ -19,6 +19,8 @@ import com.google.android.gms.samples.vision.face.facetracker.R;
 import com.google.android.gms.samples.vision.face.facetracker.FaceTrackerActivity;
 import java.util.concurrent.LinkedBlockingQueue;//for Data structure
 import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.io.IOException;
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -32,10 +34,13 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     HaarDetector hd = new HaarDetector();
     Button mBtnSwitch;
     int counterF=0;
+    int old_s;
+    int delta;
 
     public String trackerName = "OCV-tracker";
     final DataStructure ds = new DataStructure();//contains all usefull Data (struct)
-    final LinkedBlockingQueue<DataStructure> queue = new LinkedBlockingQueue<>(5);//LBQ of all useful Data (struct)
+    int BOUND = 5;
+    final LinkedBlockingQueue<DataStructure> queue = new LinkedBlockingQueue<>(BOUND);//LBQ of all useful Data (struct)
 
     //Data Structure (that is an equivalent of C++ struct) contains all useful data for drawing
     final public class DataStructure {
@@ -43,8 +48,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
         private int FrameNumber;
 
         public DataStructure() {
-            this.frame= mRgba;
-            this.FrameNumber = 1000;
+            this.frame= mRgba;//eliminare
+            this.FrameNumber = 1000;//eliminare
         }
         // constructor
         public DataStructure(Mat frame, int FrameNumber) {
@@ -65,11 +70,16 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
     public class DataManager {
 
-        private static final long SLEEP_INTERVAL_MS = 34;
+        private static final long SLEEP_INTERVAL_MS = 34;//1/30;
+        private Thread producerThread = null;
 
         public void DataManager() {
 
             System.out.println("DM_Queue contains\t"+queue+" (queue_length: "+queue.toArray().length+")");
+            if(queue.size()==BOUND){
+                queue.clear();
+                System.out.println("DM_deleted queue");
+            }
 
             Producer producer = new Producer(queue);//Insert into LBQ all useful Data (struct)
             ObservingConsumer obsConsumer = new ObservingConsumer(queue, producer);
@@ -80,11 +90,11 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             Thread remConsumerThread = new Thread(remConsumer);
 
             producerThread.start();
-            Log.i(TAG, "DM\tStarted P "+producerThread.getName()+producerThread.getId() +"(status: "+producerThread.getState()+")");
+            Log.i(TAG, "DM\tStarted P "+producerThread.getName()+producerThread.getId() +"(status: "+producerThread.getState()+" running: "+producer.isRunning()+")");
 
             try {
                 producerThread.join(SLEEP_INTERVAL_MS);
-                Log.i(TAG, "DM\tExecuted P "+producerThread.getName()+producerThread.getId() +"(status: "+producerThread.getState()+")");
+                Log.i(TAG, "DM\tExecuted P "+producerThread.getName()+producerThread.getId() +"(status: "+producerThread.getState()+" running: "+producer.isRunning()+")");
             } catch(InterruptedException e) {
                 e.printStackTrace();
                 Log.e(TAG, "DM\tFailed join P: " + e +"(threadName: "+producerThread.getName()+producerThread.getId()+"(status: "+producerThread.getState()+")");
@@ -126,24 +136,32 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
             // until it can actually insert elements if there is
             // not space in the queue.
             if (counterF>0) {
-                Log.i(TAG, "P\tStarted "+Thread.currentThread().getName()+Thread.currentThread().getId() +"(status: "+Thread.currentThread().getState()+")");
                 //store current frame with relative FrameNumber
                 try {
-                    DataStructure ds=new DataStructure(mRgba,counterF);//contains all usefull Data (struct)
+                    DataStructure ds=new DataStructure(mRgba.clone(),counterF);//contains all usefull Data (struct)
                     queue.put(ds);
+
+                    System.out.println("P\tQueue_remainingCapacity:"+queue.remainingCapacity());
                     System.out.println("P\tAdding DataStructure (#frame: " + ds.getFrameNumberDS()+")\t("+Thread.currentThread().getName()+Thread.currentThread().getId()+" -> STATUS: "+Thread.currentThread().getState()+")");
                     //Thread.sleep(SLEEP_INTERVAL_MS); //34 (old value: 1000)
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    Log.e(TAG, "P\tProducer thread has stopped");
                 }
             }
-            System.out.println("P Completed.");
+            System.out.println("P Completed. Executed: "+Producer.this);
             //===========================
-            //running = false;
-            synchronized (Producer.this) {
+           // running = false;
+
+            System.out.println("this: "+this);
+            ////synchronized (Producer.this) {
+            synchronized (this) {
                 running = false;
+                System.out.println("P running = false -> running: "+running+" this: "+this+" this.isRunning():"+this.isRunning());
                 //use notify() method to send notification to the other threads that are waiting
-                Producer.this.notify();
+                ////Producer.this.notify();
+                this.notify();
+                System.out.println("P\tNotify threads");
             }
             //===========================
 
@@ -153,65 +171,71 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     public class ObservingConsumer implements Runnable {
         private LinkedBlockingQueue<DataStructure>  queue;
         private Producer producer;
+        protected boolean flag;
         public ObservingConsumer(LinkedBlockingQueue<DataStructure> queue, Producer producer) {
             this.queue = queue;
             this.producer = producer;
+        }
+
+        private void printQueueElements() throws IOException
+        {
+            if (!queue.isEmpty()){
+                System.out.println("OC\t Queue size now: "+queue.size());
+                final Iterator<DataStructure> ListOfItems = queue.iterator();
+                try {
+                    while (ListOfItems.hasNext() == true) {
+                        System.out.println("OC\tPRINT listOfItems: (frame_ch:" + ListOfItems.next().getFrameDS().channels()
+                                + ", frameNumber:" + ListOfItems.next().getFrameNumberDS()+")");
+                    }
+                } catch(NoSuchElementException ne) {
+                    ne.printStackTrace();
+                }
+            }
+            else{
+                System.out.println("NO PRINT: queue.isEmpty():"+queue.isEmpty());
+            }
+
+            throw new IOException("OC\tNot-printable Queue Elements " +
+                    "("+Thread.currentThread().getName()+Thread.currentThread().getId()+
+                      " STATUS:" +Thread.currentThread().getState()+")");
         }
 
         @Override
         public void run() {
             // As long as the producer is running,
             // we want to check for elements.
-            while (producer.isRunning()) {
-                //System.out.println("OC\tElements right now:\t" + queue);
+            /*while (producer.isRunning()) {
 
-                // create Iterator of linkedQueue using iterator() method
-                Iterator<DataStructure> listOfItems = queue.iterator();
+                ///try {
+                   // this.printQueueElements();
+                //} catch (IOException e){
+                   // e.printStackTrace();
+                  //  Log.e(TAG, "OC\tException2");
+                //}
 
-                // find head of linkedQueue using peek() method
-                DataStructure head = queue.peek();
-
-                if(head !=null) {
-                    // print head of queue
-                    System.out.println("OC\tHead of Queue is: " + head);
-                    System.out.println("OC\tframe_channel(): " + head.getFrameDS().channels());
-                    System.out.println("OC\tframeNumber: " + head.getFrameNumberDS());
-
-                    //print queue items
-                    /*while (listOfItems.hasNext()) {
-                        System.out.println("listOfItems: (frame_ch:"+listOfItems.next().getFrameDS().channels()+", frameNumber:" +listOfItems.next().getFrameNumberDS());
-                    }*/
-
-                    //print queue items
-                   /* try {
-                        while (listOfItems.hasNext()) {
-                            System.out.println("listOfItems: (frame_ch:" + listOfItems.next().getFrameDS().channels() + ", frameNumber:" + listOfItems.next().getFrameNumberDS());
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        Log.e(TAG, "OC\tException");
-                    }*/
-
+                if(!this.queue.isEmpty()){
+                    System.out.println("OC\tQueueSize:"+this.queue.size());
+                    //Thread.currentThread().interrupt();
                 }
-                else
-                {
-                    System.out.println("OC\tQueue is empty");
+            }*/
+
+            old_s=this.queue.size();
+            flag=false;
+            while(producer.isRunning())
+            {
+                int curr_s=this.queue.size();
+                delta=curr_s-old_s;
+                if (delta>0) {
+                    //System.out.println("OC\told_s:" + old_s + " curr_s: "+curr_s+" (flag:" + flag + ")");
+                    flag = true;
+                    System.out.println("OC\tCurrent queue sizeCONTROLLO: "+curr_s + " old_s:"+old_s);
                 }
-
-
-
-                /*try {
-                    Thread.sleep(68);//68//old value:2000)
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }*/
             }
-            System.out.println("OC Completed! Final elements in the queue:\t" + queue);
+            System.out.println("OC Completed! Final elements in the queue:\t" + queue+"flag:"+flag);
         }
     }
 
     public class RemovingConsumer implements Runnable {
-        //private LinkedBlockingQueue queue;
         private LinkedBlockingQueue<DataStructure>  queue;
         private Producer producer;
         RemovingConsumer(LinkedBlockingQueue<DataStructure> queue, Producer producer) {
