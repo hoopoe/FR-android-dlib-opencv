@@ -6,20 +6,6 @@ Moved Files:
 Android Gradle projects use a different directory structure than ADT
 Eclipse projects. Here's how the projects were restructured:
 
-* AndroidManifest.xml => openCVLibrary340dev/src/main/AndroidManifest.xml
-* lint.xml => openCVLibrary340dev/lint.xml
-* res/ => openCVLibrary340dev/src/main/res/
-* src/ => openCVLibrary340dev/src/main/java/
-* src/org/opencv/engine/OpenCVEngineInterface.aidl => openCVLibrary340dev/src/main/aidl/org/opencv/engine/OpenCVEngineInterface.aidl
-* src/org/opencv/tracking/.gradle/4.4/fileChanges/last-build.bin => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.gradle/4.4/fileChanges/last-build.bin
-* src/org/opencv/tracking/.gradle/4.4/fileHashes/fileHashes.lock => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.gradle/4.4/fileHashes/fileHashes.lock
-* src/org/opencv/tracking/.idea/codeStyles/Project.xml => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.idea/codeStyles/Project.xml
-* src/org/opencv/tracking/.idea/gradle.xml => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.idea/gradle.xml
-* src/org/opencv/tracking/.idea/misc.xml => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.idea/misc.xml
-* src/org/opencv/tracking/.idea/modules.xml => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.idea/modules.xml
-* src/org/opencv/tracking/.idea/workspace.xml => openCVLibrary340dev/src/main/resources/org/opencv/tracking/.idea/workspace.xml
-* src/org/opencv/tracking/tracking.iml => openCVLibrary340dev/src/main/resources/org/opencv/tracking/tracking.iml
-
 Next Steps:
 -----------
 You can now build the project. The Gradle project needs network
