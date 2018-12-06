@@ -11,7 +11,7 @@ android {
         }
     }
     compileSdkVersion 23
-    buildToolsVersion '28.0.2'
+    buildToolsVersion '28.0.3'
     defaultConfig {
         applicationId "com.google.android.gms.samples.vision.face.facetracker"
         minSdkVersion 21

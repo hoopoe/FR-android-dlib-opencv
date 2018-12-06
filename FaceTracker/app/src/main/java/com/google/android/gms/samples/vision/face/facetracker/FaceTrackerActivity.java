@@ -265,11 +265,11 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         int h = mBackCamHeight;
         int orientation = context.getResources().getConfiguration().orientation;
         if (orientation == Configuration.ORIENTATION_PORTRAIT) {
-            w = mBackCamHeight;
-            h = mBackCamWidth;
+            w = mBackCamWidth;
+            h = mBackCamHeight;
         } else{
-            w = mFrontCamHeight;
-            h = mFrontCamWidth;
+            w = mFrontCamWidth;
+            h = mFrontCamHeight;
         }
 
         mCameraSource = new CameraSource.Builder(context, customDetector)
