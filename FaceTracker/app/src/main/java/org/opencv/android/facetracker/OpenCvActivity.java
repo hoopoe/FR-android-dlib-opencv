@@ -21,6 +21,9 @@ import java.util.concurrent.LinkedBlockingQueue;//for Data structure
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.io.IOException;
+import org.opencv.core.MatOfRect;
+import org.opencv.core.Rect;
+import org.opencv.core.Size;
 
 public class OpenCvActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -31,7 +34,12 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     private Mat mRgba;
     private Mat mGray;
     private CameraBridgeViewBase mOpenCvCameraView;
-    HaarDetector hd = new HaarDetector();
+    Visualizer v = new Visualizer();
+    Mat modRGBA = null;
+    //============toCancel_N.2============================
+    boolean okThread = false;
+    private Thread mtd = null;
+    //====================================================
     Button mBtnSwitch;
     int counterF=0;
     int old_s = 0;
@@ -45,30 +53,89 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     Thread obsConsumerThread = null;
     Thread remConsumerThread = null;
 
+    //Visualizer modifies the grabbed frames by adding Bounding Boxes, Person Name and FaceID
+    public class Visualizer {
+        private Mat modifiedFrame;
+        private DataStructure data;
 
+        public Visualizer() {
+            this.data = ds;
+        }
+
+        //Draws on the frame only after X-frames, that will not be displayed
+        public Mat DrawOnFrame() {
+            Scalar DETECT_BOX_COLOR   = new Scalar(255, 255, 0, 255);//yellow
+            int NumFrame = data.getFrameNumberDS();
+           // if(NumFrame>20) {
+                modifiedFrame = data.getFrameDS();
+                String Name = data.getPersonNameDS();
+                try{
+                    Rect[] BB = data.getBBListDS();
+                    System.out.println("Visualizer\tBBList_size:"+BB.length);
+                } catch(Exception e){
+                    e.printStackTrace();
+                    Log.e(TAG,"Visualizer\tNo BBList");
+                }
+
+                Imgproc.putText(modifiedFrame, String.valueOf(NumFrame), new Point(50, 50), 3, 3,
+                        new Scalar(0, 255, 0, 255), 3); //green
+                Imgproc.putText(modifiedFrame, String.valueOf(Name), new Point(350, 50), 3, 3,
+                        new Scalar(0, 255, 0, 255), 3); //green
+                //draw BBList
+               /* if (BB.length>0) {
+                    for (Rect rect : this.data.BBList) {
+                        Imgproc.rectangle(modifiedFrame, rect.tl(), rect.br(), DETECT_BOX_COLOR, 3);
+                    }
+                }*/
+           // }
+            return modifiedFrame;
+        }
+
+    }
 
     //Data Structure (that is an equivalent of C++ struct) contains all useful data for drawing
     public class DataStructure {
         private Mat frame;
         private int FrameNumber;
+        private Rect[] BBList;
+        private Mat faceImage;
+        private int FaceID;
+        private String PersonName;
+
 
         public DataStructure() {
-            this.frame= mRgba;//eliminare
-            this.FrameNumber = counterF;//1000;//eliminare
+            this.frame= mRgba;
+            this.FrameNumber = counterF;
+            this.BBList = null;
+            this.faceImage = null;
+            this.FaceID = 0;
+            this.PersonName = "Unknown";
         }
         // constructor
         public DataStructure(Mat frame, int FrameNumber) {
             this.frame= frame;
             this.FrameNumber = FrameNumber;
+            this.BBList = null;
+            this.faceImage = null;
+            this.FaceID = 0;
+            this.PersonName = "Unknown";
         }
 
         // getter
         public Mat getFrameDS() { return frame; }
         public int getFrameNumberDS() { return FrameNumber; }
+        public Rect[] getBBListDS() { return BBList; }
+        public Mat getFaceImageDS() { return faceImage; }
+        public int getFaceIdDS() { return FaceID; }
+        public String getPersonNameDS() { return PersonName; }
 
         // setter
         public void storeFrameDS(Mat frame) { this.frame = frame; }
         public void storeFrameNumberDS(int FrameNumber) { this.FrameNumber = FrameNumber; }
+        public void storeBBListDS(Rect[] BB) { this.BBList = BB; }
+        public void storeFaceImageDS(Mat croppedImage) { this.faceImage = croppedImage; }
+        public void storeFaceIdDS(int ID) { this.FaceID = ID; }
+        public void storePersonNameDS(String Name) { this.PersonName = Name; }
 
     }
 
@@ -132,6 +199,31 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                     //DataStructure ds=new DataStructure(mRgba,counterF);//contains all usefull Data (struct)
                     System.out.println("P\tDS_#frame"+ds.getFrameNumberDS());
 
+                    //frame processing (face detection)--------
+                   /* MatOfRect detectedFaces = new MatOfRect();
+                    nativehd.OCvDetect(mRgba, detectedFaces, counterF);
+                    if(!detectedFaces.empty()) {
+                        System.out.println("P\tStoring BBlist into DS (BBList_size:"+detectedFaces.toArray().length+")");
+                        ds.storeBBListDS(detectedFaces.toArray());
+                    }*/
+
+                    /*okThread = true;
+                    MatOfRect detectedFaces = new MatOfRect();
+                    Mat currFrame = ds.getFrameDS();
+                    int currNumFrame = ds.getFrameNumberDS();
+                    nativehd.OCvDetect(currFrame, detectedFaces, currNumFrame);
+                    if (!detectedFaces.empty()) {
+                        Rect[] detectedFacesArray = detectedFaces.toArray();//to draw detected faces
+                        for (Rect rect : detectedFacesArray) {
+                            Imgproc.rectangle(mRgba, rect.tl(), rect.br(), DETECT_BOX_COLOR, 3);
+                        }
+                    } else {
+                        detectedFaces.release();
+                    }
+                    okThread = false;*/
+
+                    //-----------------------------------------
+
                     queue.put(ds);
 
                     System.out.println("P\tQueue_remainingCapacity:"+queue.remainingCapacity());
@@ -174,7 +266,6 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
     public class ObservingConsumer implements Runnable {
         private LinkedBlockingQueue<DataStructure>  queue;
         private Producer producer;
-        protected boolean flag;
         public ObservingConsumer(LinkedBlockingQueue<DataStructure> queue, Producer producer) {
             this.queue = queue;
             this.producer = producer;
@@ -264,7 +355,8 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
                 case LoaderCallbackInterface.SUCCESS: {
                     Log.d(TAG, "OpenCV loaded successfully");
                     // Load native library after(!) OpenCV initialization
-                    hd.loadNative();
+                    //hd.loadNative();
+                    //nativehd.loadNative();
                     mOpenCvCameraView.enableView();
                 }
                 break;
@@ -365,13 +457,14 @@ public class OpenCvActivity extends AppCompatActivity implements CameraBridgeVie
 
         ds=new DataStructure(mRgba,counterF);//contains all usefull Data (struct)
         System.out.println("OpencvActivity\tDSmain_#frame"+ds.getFrameNumberDS());
-
+        v = new Visualizer();
         DataManager dm = new DataManager();//manage Threads
         System.out.println("OpencvActivity -> DataManager CREATED");
 
-        Imgproc.putText(mRgba, String.valueOf(counterF), new Point(50, 50), 3, 3,
-                new Scalar(255, 0, 0, 255), 3);
 
-        return mRgba;
+        modRGBA =v.DrawOnFrame();
+
+        return modRGBA;
     }
-}
+
+ }
