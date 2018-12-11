@@ -105,13 +105,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     // permission request codes need to be < 256
     private static final int RC_HANDLE_CAMERA_AND_SDCARD_PERM = 7;
 
-    private int mFrontCamWidth;
-    private int mFrontCamHeight;
-    private int mBackCamWidth;
-    private int mBackCamHeight;
-
     private FaceRecognizer mFaceRecognizer;
-    private boolean mIsFront;
+    private static boolean mIsFront;
     private Context context;
 
     //==============================================================================================
@@ -123,6 +118,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      */
     @Override
     public void onCreate(Bundle icicle) {
+//        Log.d(TAG, "onCreate");
         super.onCreate(icicle);
         setContentView(R.layout.main);
 
@@ -131,12 +127,28 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         mBtnDetect = (Button) findViewById(R.id.btnDetect);
         mBtnSwitchCamera = (Button) findViewById(R.id.btnSwitchCamera);
 
+        mBtnSwitchCamera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FaceTrackerActivity.mIsFront = !FaceTrackerActivity.mIsFront;
+                customDetector.setHandlerListener(null);
+                customDetector.release();
+                mCameraSource.release();
+                if (FaceTrackerActivity.mIsFront) {
+                    createCameraSource(CameraSource.CAMERA_FACING_FRONT);
+                } else{
+                    createCameraSource(CameraSource.CAMERA_FACING_BACK);
+                }
+                startCameraSource();
+            }
+        });
+
         btnTraining = (Button) findViewById(R.id.btnTraining);
         mlblTraining = (TextView) findViewById(R.id.lblTraining);
 
         mTxtTrainingName = (EditText) findViewById(R.id.txtTrainingName);
         mTxtTrainingName.setOnEditorActionListener(new DoneOnEditorActionListener(this));
-        mFaceRecognizer = new FaceRecognizer();
+        mFaceRecognizer = new FaceRecognizer();//todo: what's wrong with old instance?
 
         // Check for the camera permission before accessing the camera.  If the
         // permission is not granted yet, request permission.
@@ -144,7 +156,15 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         int rs = ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
 
         if (rc == PackageManager.PERMISSION_GRANTED && rs == PackageManager.PERMISSION_GRANTED) {
-            createCameraSource(CameraSource.CAMERA_FACING_BACK);
+            Log.d(TAG, "createCameraSource before requesting permissions");
+
+            mFaceRecognizer.loadNative();
+            if (FaceTrackerActivity.mIsFront) {
+                createCameraSource(CameraSource.CAMERA_FACING_FRONT);
+            }else{
+                createCameraSource(CameraSource.CAMERA_FACING_BACK);
+            }
+            startCameraSource();
         } else {
             requestCameraAndSdCardPermission();
         }
@@ -184,43 +204,14 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void calcCameraFrameSize()
-    {
-        int numCameras = Camera.getNumberOfCameras();
-
-        for (int i = 0; i < numCameras; i++)
-        {
-            Camera.CameraInfo cameraInfo=new Camera.CameraInfo();
-            Camera.getCameraInfo(i, cameraInfo);
-            if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT)
-            {
-                Camera camera= Camera.open(i);
-                Camera.Parameters cameraParams=camera.getParameters();
-                List<Camera.Size> sizes= cameraParams.getSupportedPreviewSizes();
-                mFrontCamWidth = sizes.get(0).width;
-                mFrontCamHeight = sizes.get(0).height;
-                camera.release();
-            } else if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                Camera camera = Camera.open(i);
-                Camera.Parameters cameraParams = camera.getParameters();
-                List<Camera.Size> sizes = cameraParams.getSupportedPreviewSizes();
-                mBackCamWidth = sizes.get(0).width;
-                mBackCamHeight = sizes.get(0).height;
-                camera.release();
-            }
-        }
-    }
-
-
     /**
      * Creates and starts the camera.  Note that this uses a higher resolution in comparison
      * to other detection examples to enable the barcode detector to detect small barcodes
      * at long distances.
      */
     private void createCameraSource(int cameraFacing) {
-
+//        Log.d(TAG, "createCameraSource");
         context = getApplicationContext();
-
 
         FaceDetector detector = new FaceDetector.Builder(context)
                 .setTrackingEnabled(true)
@@ -259,21 +250,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             Log.w(TAG, "mPictureDetector dependencies are not yet available.");
         }
 
-        calcCameraFrameSize();
-
-        int w = mBackCamWidth;
-        int h = mBackCamHeight;
-        int orientation = context.getResources().getConfiguration().orientation;
-        if (orientation == Configuration.ORIENTATION_PORTRAIT) {
-            w = mBackCamWidth;
-            h = mBackCamHeight;
-        } else{
-            w = mFrontCamWidth;
-            h = mFrontCamHeight;
-        }
-
         mCameraSource = new CameraSource.Builder(context, customDetector)
-                .setRequestedPreviewSize(w, h)
                 .setFacing(cameraFacing)
                 .setAutoFocusEnabled(true)
                 .setRequestedFps(10)
@@ -298,23 +275,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 InputMethodManager imm = (InputMethodManager)
                         getSystemService(Context.INPUT_METHOD_SERVICE);
                 imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
-            }
-        });
-
-        mBtnSwitchCamera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mIsFront = !mIsFront;
-                customDetector.setHandlerListener(null);
-                customDetector.release();
-                mCameraSource.release();
-
-                if (mIsFront) {
-                    createCameraSource(CameraSource.CAMERA_FACING_FRONT);
-                } else{
-                    createCameraSource(CameraSource.CAMERA_FACING_BACK);
-                }
-                startCameraSource();
             }
         });
     }
@@ -400,9 +360,8 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      */
     @Override
     protected void onResume() {
+//        Log.d(TAG, "onResume");
         super.onResume();
-        mFaceRecognizer.loadNative();
-        startCameraSource();
     }
 
     /**
@@ -410,6 +369,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      */
     @Override
     protected void onPause() {
+//        Log.d(TAG, "onPause");
         super.onPause();
         mPreview.stop();
     }
@@ -420,6 +380,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      */
     @Override
     protected void onDestroy() {
+//        Log.d(TAG, "onDestroy");
         super.onDestroy();
         if (mCameraSource != null) {
             mCameraSource.release();
@@ -455,6 +416,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             // we have permission, so create the camerasource
             mFaceRecognizer.loadNative();
             createCameraSource(CameraSource.CAMERA_FACING_BACK);
+            startCameraSource();
 
             return;
         }
@@ -485,7 +447,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
      * again when the camera source is created.
      */
     private void startCameraSource() {
-
+        Log.d(TAG, "startCameraSource");
         // check that the device has play services available.
         int code = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(
                 getApplicationContext());

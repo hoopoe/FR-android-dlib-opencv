@@ -11,8 +11,12 @@
 #include <dlib/image_processing.h>
 #include <dlib/svm/svm_multiclass_linear_trainer.h>
 
+#include <sqlite3.h>
+#include "sqlite_orm.h"
+
 using namespace std;
 using namespace dlib;
+
 
 #define  LOG_TAG    "dlib-native"
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
@@ -52,13 +56,9 @@ dlib::frontal_face_detector detector1 = dlib::get_frontal_face_detector();
 dlib::shape_predictor sp, sp1;
 anet_type net, net1;
 
-//std::vector<matrix<float, 0, 1>> known_faces;
-
-std::unordered_map<std::string, matrix<float, 0, 1>> known_faces;
-
-typedef matrix<float, 0, 1> sample_type;
-typedef linear_kernel<sample_type> lin_kernel;
-multiclass_linear_decision_function<lin_kernel, string> df;
+//typedef matrix<float, 0, 1> sample_type;
+//typedef linear_kernel<sample_type> lin_kernel;
+//multiclass_linear_decision_function<lin_kernel, string> df;
 
 typedef struct
 {
@@ -68,68 +68,64 @@ typedef struct
     uint8_t blue;//a  see rgb_pixel assignment
 } argb;
 
+typedef struct
+{
+    int id;
+    std::string firstName;
+    std::string lastName;
+    std::string vector; //todo: custom type
+} Person;
+
 float FACE_RECOGNIZE_THRESH = 0.55;
+
+inline auto initStorage(const std::string &path) {
+    using namespace sqlite_orm;
+    return make_storage(path, make_table("persons",
+                                         make_column("id",
+                                                     &Person::id,
+                                                     autoincrement(),
+                                                     primary_key()),
+                                         make_column("first_name",
+                                                     &Person::firstName),
+                                         make_column("last_name",
+                                                     &Person::lastName),
+                                         make_column("vector",
+                                                     &Person::vector)));
+};
+using Storage = decltype(initStorage(""));
+static std::shared_ptr<Storage> db;
 
 void save_face_stamp(const char *name, const array2d<rgb_pixel> &img, std::vector<dlib::rectangle> &dets);
 
-extern "C"
-JNIEXPORT jint JNICALL
-Java_dlib_android_FaceRecognizer_loadResourcesPart1(JNIEnv *env, jobject instance) {
 
-    LOGI("load resource part1");
-    FILE *file1 = fopen("/sdcard/Download/shape_predictor_5_face_landmarks.dat", "r+");
-    FILE *file2 = fopen("/sdcard/Download/dlib_face_recognition_resnet_model_v1.dat", "r+");
 
-    if (file1 != NULL && file2 != NULL ) {
-        fclose(file1);
-        fclose(file2);
-        dlib::deserialize("/sdcard/Download/shape_predictor_5_face_landmarks.dat") >> sp;
-        dlib::deserialize("/sdcard/Download/dlib_face_recognition_resnet_model_v1.dat") >> net;
-
-        DIR *d;
-        char *p1,*p2;
-        int ret;
-        struct dirent *dir;
-        d = opendir("/sdcard/Download");
-        if (d)
-        {
-            LOGI("Loading feature vectors using *.vec", p1);
-            while ((dir = readdir(d)) != NULL)
-            {
-                p1=strtok(dir->d_name,".");
-                p2=strtok(NULL,".");
-                if(p2!=NULL)
-                {
-                    ret=strcmp(p2,"vec");
-                    if(ret==0)
-                    {
-                        std::string name = std::string(p1);
-                        std::string file = name + ".vec";
-                        matrix<float, 0, 1> face_vector;
-                        dlib::deserialize("/sdcard/Download/"  + file) >> face_vector;
-                        known_faces.insert({name, face_vector});
-                    }
-                }
-
-            }
-            closedir(d);
-        }
-    } else {
-        LOGI("Failed to load resources part1");
-        return -1; //failed
+matrix<float, 0, 1> string_to_fvector(const string& s) {
+    std::string token;
+    std::vector<float> res;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, ',')) {
+        res.push_back(std::stof(token));
     }
+    matrix<float, 0, 1> face_vector = mat(res);
+    return face_vector;
+}
 
-    return 0;
-
+std::string fvector_to_string(matrix<float, 0, 1> face_desc) {
+    std::vector<float> v(face_desc.begin(), face_desc.end());
+    std::stringstream ss;
+    for(size_t i = 0; i < v.size(); ++i)
+    {
+        if(i != 0)
+            ss << ",";
+        ss << v[i];
+    }
+    std::string s = ss.str();
+    return s;
 }
 
 void save_face_stamp(const char *name, const array2d<rgb_pixel> &img, std::vector<dlib::rectangle> &dets) {
     auto face = dets.front();
     std::vector<matrix<rgb_pixel>> faces;
-    int x = face.left();
-    int y = face.top();
-    int width = face.width();
-    int height = face.height();
 
     auto shape = sp(img, face);
     matrix<rgb_pixel> face_chip;
@@ -139,26 +135,46 @@ void save_face_stamp(const char *name, const array2d<rgb_pixel> &img, std::vecto
 
     if (face_descriptors.size() > 0) {
         matrix<float, 0, 1> face_desc = face_descriptors[0];
-
-        std::vector<string> names;
-        int cx = 0;
-        for(auto kv : known_faces) {
-            if(0 == kv.first.find(name)) {
-                cx++;
-            }
+        std::string fvector = fvector_to_string(face_desc);
+        try {
+            Person person{-1, string(name), "LastName", fvector};
+            db->insert(person);
         }
-
-        std:string person_name = string(name) + "_" + to_string(cx);
-        known_faces.insert({person_name, face_desc});
-        string filename = "/sdcard/Download/" + person_name + ".vec";
-        serialize(filename) << face_desc;
+        catch(...)
+        {
+            LOGE("Save face to db failed");
+        }
     }
 }
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_dlib_android_FaceRecognizer_loadResourcesPart2(JNIEnv *env, jobject instance) {
+Java_dlib_android_FaceRecognizer_loadResourcesPart1(JNIEnv *env, jobject instance) {
+    LOGI("load resource part1");
 
+    using namespace sqlite_orm;
+    db = std::make_shared<Storage>(initStorage("/sdcard/Download/people.db"));
+
+    FILE *file1 = fopen("/sdcard/Download/shape_predictor_5_face_landmarks.dat", "r+");
+    FILE *file2 = fopen("/sdcard/Download/dlib_face_recognition_resnet_model_v1.dat", "r+");
+
+    if (file1 != NULL && file2 != NULL ) {
+        fclose(file1);
+        fclose(file2);
+        dlib::deserialize("/sdcard/Download/shape_predictor_5_face_landmarks.dat") >> sp;
+        dlib::deserialize("/sdcard/Download/dlib_face_recognition_resnet_model_v1.dat") >> net;
+    } else {
+        LOGI("Failed to load resources part1");
+        return -1; //failed
+    }
+
+    return 0;
+}
+
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_dlib_android_FaceRecognizer_loadResourcesPart2(JNIEnv *env, jobject instance) {
     LOGI("load resource part2");
     FILE *file1 = fopen("/sdcard/Download/shape_predictor_5_face_landmarks.dat", "r+");
     FILE *file2 = fopen("/sdcard/Download/dlib_face_recognition_resnet_model_v1.dat", "r+");
@@ -238,13 +254,6 @@ Java_dlib_android_FaceRecognizer_recognizeFaces(JNIEnv *env,
     for (size_t i = 0; i < face_descriptors.size(); ++i)
     {
         std::string name = "Unknown";
-        for (auto j : known_faces) {
-            float dist = length(face_descriptors[i] - j.second);
-            if (dist < FACE_RECOGNIZE_THRESH) {
-                name = j.first;
-                break;
-            }
-        }
         names.push_back(name);
     }
 
@@ -261,7 +270,7 @@ Java_dlib_android_FaceRecognizer_recognizeFaces(JNIEnv *env,
 }extern "C"
 JNIEXPORT jstring JNICALL
 Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jobject bmp) {
-
+    LOGI("Start recognition");
     AndroidBitmapInfo infocolor;
     void *pixelscolor;
     int y;
@@ -275,7 +284,6 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
     LOGI("color image :: width is %d; height is %d; stride is %d; format is %d;flags is %d",
          infocolor.width, infocolor.height, infocolor.stride, infocolor.format, infocolor.flags);
 
-    LOGI("known_faces size %d", known_faces.size());
     if (infocolor.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
         LOGE("Bitmap format is not RGBA_8888 !");
         return env->NewStringUTF("Image broken 2");
@@ -296,12 +304,11 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
     }
 
     //todo: smth wrong with colors
-    //dlib::save_bmp(img, "/sdcard/Download/res.bmp");
+//    LOGI("before save");
+//    dlib::save_bmp(img, "/sdcard/Download/res.bmp");
+//    LOGI("after save");
 
     std::vector<dlib::rectangle> dets = detector(img);
-    //LOGI("detected size %d", dets.size());
-
-    float min_dist = 0.0;
     if(dets.size() > 0  ){
         auto face = dets.front();
         std::vector<matrix<rgb_pixel>> faces;
@@ -311,35 +318,31 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
         int height = face.height();
 
         auto shape = sp(img, face);
-//        LOGI("shape predictor");
         matrix<rgb_pixel> face_chip;
         extract_image_chip(img, get_face_chip_details(shape, 150, 0.25), face_chip);
         faces.push_back(move(face_chip));
 
-//        LOGI("before recognized size %d", -1);
         std::vector<matrix<float, 0, 1>> face_descriptors = net(faces);
-//        LOGI("after recognized size %d", face_descriptors.size());
         if (face_descriptors.size() > 0)
         {
             matrix<float, 0, 1> face_desc = face_descriptors[0];
-            for (auto i : known_faces) {
-                float dist = length(face_desc -  i.second );
-                if (dist < min_dist){
-                    min_dist = dist;
-                }
+            auto persons = db->get_all<Person>();
+            for(auto &p : persons) {
+
+                matrix<float, 0, 1> db_face_vector = string_to_fvector(p.vector);
+
+                float dist = length(face_desc - db_face_vector );
                 if( dist < FACE_RECOGNIZE_THRESH)
                 {
-                    //LOGI("recognized");
-                    return env->NewStringUTF(i.first.c_str());
+                    return env->NewStringUTF(p.firstName.c_str());
                 }
             }
+        } else {
+            LOGI("face not recognized");
         }
-        LOGI("not recognized, max dist %0.2f", min_dist);
     }
 
-    LOGI("unlocking pixels");
     AndroidBitmap_unlockPixels(env, bmp);
-
     std::string returnValue = "Unknown";
     return env->NewStringUTF(returnValue.c_str());
 }

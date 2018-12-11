@@ -161,3 +161,4 @@ IMAGEUTILS_METHOD(convertRGB565ToYUV420SP)(
   env->ReleaseByteArrayElements(input, i, JNI_ABORT);
   env->ReleaseByteArrayElements(output, o, 0);
 }
+

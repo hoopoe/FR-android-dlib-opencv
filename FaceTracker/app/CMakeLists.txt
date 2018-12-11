@@ -3,8 +3,17 @@
 # value of 3.4.0 or lower.
 
 cmake_minimum_required(VERSION 3.4.1)
-set(CMAKE_VERBOSE_MAKEFILE on)
-set (CMAKE_CXX_STANDARD 11)
+#set(CMAKE_VERBOSE_MAKEFILE on)
+#set (CMAKE_CXX_STANDARD 11)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+
+set(SQLITE_DIR ../../sqlite)
+include_directories(${SQLITE_DIR})
+add_library(sqlite3 SHARED ../../sqlite/sqlite3.c)
 
 find_library( # Sets the name of the path variable.
               log-lib
@@ -15,8 +24,6 @@ find_library( # Sets the name of the path variable.
 
 set(DLIB_DIR ../../dlib)
 include_directories(${DLIB_DIR})
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 add_library( # Sets the name of the library.
              lib_dlib
@@ -34,8 +41,8 @@ add_library( # Sets the name of the library.
              ../../dlib/dlib/threads/threads_kernel_2.cpp
              ../../dlib/dlib/threads/thread_pool_extension.cpp
              ../../dlib/dlib/threads/async.cpp
-             ../../dlib/dlib/dnn/cpu_dlib.cpp
-             ../../dlib/dlib/dnn/tensor_tools.cpp
+             ../../dlib/dlib/cuda/cpu_dlib.cpp
+             ../../dlib/dlib/cuda/tensor_tools.cpp
              )
 
 add_library( # Sets the name of the library.
@@ -51,6 +58,8 @@ add_library( # Sets the name of the library.
 
 target_link_libraries( # Specifies the target library.
                        native-lib
+
+                       sqlite3
 
                        lib_dlib
 

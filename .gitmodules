@@ -1,4 +1,7 @@
 [submodule "dlib"]
-	path = dlib
-	url = git://github.com/hoopoe/dlib.git
-        branch = android
+  path = dlib
+  url = git://github.com/hoopoe/dlib.git
+    branch = master
+[submodule "sqlite"]
+	path = sqlite
+	url = https://github.com/azadkuh/sqlite-amalgamation.git

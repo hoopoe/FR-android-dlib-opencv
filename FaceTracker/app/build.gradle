@@ -19,7 +19,7 @@ android {
         versionName "1.0"
         externalNativeBuild {
             cmake {
-                cppFlags "-frtti -fexceptions -std=c++11"
+                cppFlags "-frtti -fexceptions -std=c++14"
                 abiFilters 'armeabi-v7a', 'arm64-v8a'
                 arguments "-DANDROID_STL=c++_shared"
             }
