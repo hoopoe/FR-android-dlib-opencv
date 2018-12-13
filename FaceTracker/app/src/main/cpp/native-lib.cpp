@@ -309,7 +309,8 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
 //    LOGI("after save");
 
     std::vector<dlib::rectangle> dets = detector(img);
-    if(dets.size() > 0  ){
+    string name = "Unknown";
+    if(dets.size() > 0){
         auto face = dets.front();
         std::vector<matrix<rgb_pixel>> faces;
         int x = face.left();
@@ -323,18 +324,20 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
         faces.push_back(move(face_chip));
 
         std::vector<matrix<float, 0, 1>> face_descriptors = net(faces);
+
         if (face_descriptors.size() > 0)
         {
             matrix<float, 0, 1> face_desc = face_descriptors[0];
             auto persons = db->get_all<Person>();
+            float min_dist = 0.6;
             for(auto &p : persons) {
-
                 matrix<float, 0, 1> db_face_vector = string_to_fvector(p.vector);
-
                 float dist = length(face_desc - db_face_vector );
-                if( dist < FACE_RECOGNIZE_THRESH)
+                if( dist < FACE_RECOGNIZE_THRESH && dist <= min_dist)
                 {
-                    return env->NewStringUTF(p.firstName.c_str());
+                    min_dist = dist;
+                    name = p.firstName;
+//                    return env->NewStringUTF(p.firstName.c_str());
                 }
             }
         } else {
@@ -343,8 +346,7 @@ Java_dlib_android_FaceRecognizer_recognizeFace(JNIEnv *env, jobject instance, jo
     }
 
     AndroidBitmap_unlockPixels(env, bmp);
-    std::string returnValue = "Unknown";
-    return env->NewStringUTF(returnValue.c_str());
+    return env->NewStringUTF(name.c_str());
 }
 
 extern "C"
