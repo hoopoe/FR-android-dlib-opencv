@@ -46,8 +46,8 @@ public class VideoDetectionTrackerTest {
     private File                    mCascadeFile;
     private String                  AppPath    = "/myAppFolder/";
     private String                  AppResPath = "/myAppRes/";
-    private String                  videoname  = "Girl.mp4";
-    //private String                  videoname  = "v1465.mp4";
+    //private String                  videoname  = "Girl.mp4";
+    private String                  videoname  = "v1465.mp4";
     private String                  outImgName = "/FDbT-frame";
     private String                  AppResSDcardDir = "/myAppDataRes/";
     private DetectionBasedTracker   nativeDetect;
@@ -191,7 +191,6 @@ public class VideoDetectionTrackerTest {
                 Utils.matToBitmap(matImg,bitmap); // copy img with detection boxes in bitmap to be saved
                 saveImage(bitmap);
                 Log.i(TAG, "added frame = " +i+"  "+ j);
-                //Log.i(TAG, "added frame = " +(++i));
             }
             else {
                 Log.i(TAG, "END of VIDEO or BITMAP is NULL!!");

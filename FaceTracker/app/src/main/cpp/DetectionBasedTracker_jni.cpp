@@ -19,7 +19,6 @@
 extern "C"
 {
 
-
 using namespace std;
 using namespace cv;
 
@@ -40,7 +39,6 @@ public:
         CV_Assert(detector);
     }
 
-
     void detect(const cv::Mat &Image, std::vector<cv::Rect> &objects) {
         LOGD("CascadeDetectorAdapter::Detect: BEGIN");
 
@@ -48,7 +46,7 @@ public:
         // scaleFactor, minNeighbours, minObjSize.width, minObjSize.height, maxObjSize.width, maxObjSize.height);
 
         //Detector->detectMultiScale(Image, objects, scaleFactor, minNeighbours, 0, minObjSize, maxObjSize);
-        Detector->detectMultiScale(Image, objects, 1.1, 3, 0, Size(15,15), Size(1000, 1000));
+        Detector->detectMultiScale(Image, objects, 1.1, 3, 0, Size(0,0), Size(1000, 1000));
         LOGD("CALLED DetectMultiScale");
         LOGD("CascadeDetectorAdapter::Detect: NUM FRAME = %d", numframe++);
 
@@ -181,15 +179,13 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
 
         LOGD("DetectionBasedTracker_nativeDetect NativeRectFaces = %zu", RectFaces.size());
 
-        // if no faces from native detector
-
-
-        if(RectFaces.size() <= 0) { // no faces
+        // if no faces or detected objects from native detector
+        if(RectFaces.size() <= 0) {
             face_cascade.detectMultiScale(*((Mat *) imageGray), RectFaces, 1.1, 3, 0,
-                                          Size(15, 15), Size(1000, 1000));
+                                          Size(0, 0), Size(1000, 1000));
         }
 
-        // uncomment only for images
+        // uncomment only for testing on images
         /*
         if (firstDetection == 0) {
             if(RectFaces.size() > 0)  firstDetection = 1;
@@ -223,7 +219,7 @@ JNIEXPORT void JNICALL Java_opencv_android_fdt_DetectionBasedTracker_nativeDetec
         jenv->ThrowNew(je, "Unknown exception in JNI code DetectionBasedTracker.nativeDetect()");
     }
 
-    /*
+    /* this is currently done in Java
     for (int i = 0; i < RectFaces.size(); i++)
         rectangle(*((Mat *) imageGray), Point(RectFaces[i].x, RectFaces[i].y),
                   Point(RectFaces[i].x + RectFaces[i].width,

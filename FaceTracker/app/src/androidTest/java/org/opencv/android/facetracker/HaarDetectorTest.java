@@ -56,6 +56,7 @@ public class HaarDetectorTest {
 
         Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
 
+        //InputStream testInput = testContext.getAssets().open("11.png");
         InputStream testInput = testContext.getAssets().open("SolvayConf.jpg");
         Bitmap bitmap = BitmapFactory.decodeStream(testInput);
 
@@ -64,7 +65,7 @@ public class HaarDetectorTest {
         Imgproc.cvtColor(matImg, matImg, Imgproc.COLOR_RGB2RGBA); // pass colour img
 
         MatOfRect rectList = new MatOfRect();
-        hd.OCvDetect(matImg, rectList);
+        hd.testOCvDetect(matImg, rectList);
 
         Log.i(TAG, "Number of faces = " + rectList.size());
         Rect[] faces = rectList.toArray();

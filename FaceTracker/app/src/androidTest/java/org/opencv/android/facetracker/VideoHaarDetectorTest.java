@@ -19,6 +19,7 @@ import org.junit.Test;
 import org.opencv.android.Utils;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
@@ -45,7 +46,7 @@ public class VideoHaarDetectorTest {
     private static final Scalar     DETECT_BOX_COLOR   = new Scalar(0, 255, 0, 255);
     private String                  AppPath    = "/myAppFolder/";
     private String                  AppResPath = "/myAppRes/";
-    //private String                  videoname  = "Girl.mp4";
+    //private String                  videoname  = "v14651.mp4";
     private String                  videoname  = "v1465.mp4";
     private String                  outImgName = "/FDT-frame";
     private String                  AppResSDcardDir = "/myAppDataRes/";
@@ -53,6 +54,7 @@ public class VideoHaarDetectorTest {
     private String                  AppResTxtFile = "FDT-TestRes.txt";
     private OutputStreamWriter      fos           = null;
     private int                     imgCount      = 0;
+    private int                     frameNum      = 0;
 
 
     static {
@@ -69,7 +71,6 @@ public class VideoHaarDetectorTest {
         HaarDetector hd = new HaarDetector();
         hd.loadNative();
         Log.i(TAG, "Loaded Native" );
-
 
         // video reading
         File videoFile=new File(Environment.getExternalStorageDirectory().getAbsolutePath()+ AppPath + videoname);
@@ -109,23 +110,23 @@ public class VideoHaarDetectorTest {
         Log.i(TAG,"video duration (msec)= " + millis);
 
         long i=0, j=0;
-        //for(long i=0, j=0;i<millis*1000; j++, i+=33334) {
+        // for(long i=0, j=0;i<millis*1000; j++, i+=33334) {
         while (i<millis*1000) {
-
+            //while (i<20000000) {
             Mat rgbaImg = new Mat();
             Bitmap bitmap = retriever.getFrameAtTime(i, MediaMetadataRetriever.OPTION_CLOSEST);
-
+            frameNum ++;
             if (bitmap != null) {
-
+                MatOfRect faces = new MatOfRect();
+                /* supported Bitmap = 'ARGB_8888' or 'RGB_565'
+                 * Output size as the input Bitmap size, type is CV_8UC4,
+                 * it keeps the image in RGBA format.
+                */
                 Utils.bitmapToMat(bitmap, rgbaImg);
                 Log.i(TAG,"Matrix:  " + rgbaImg.type() +"  "+ rgbaImg.cols()+"  " + rgbaImg.rows());
 
-                // Imgproc.cvtColor(matImg, rgbaImg, Imgproc.COLOR_RGB2RGBA); // ???
-
                 long start = System.currentTimeMillis();
-
-                MatOfRect faces = hd.testOnCameraFrame(rgbaImg);
-
+                hd.testOCvDetect(rgbaImg, faces); // the detector will then convert the images from RGBA into GRAY
                 long end = System.currentTimeMillis();
                 long duration = end -start;
                 Log.i(TAG,"FDT-Activity Time " + duration/1000.0 + " sec");
@@ -150,27 +151,29 @@ public class VideoHaarDetectorTest {
                                     Integer.toString((int) (faces.toArray()[k].br().y - faces.toArray()[k].tl().y)) + ";");
                             fos.flush();
                         }
-
                         fos.write("\n");
                     }
-                }catch (FileNotFoundException e) {
+                } catch (FileNotFoundException e) {
                         System.out.println("Exception e: " + e);
                 }
+
+                Imgproc.putText(rgbaImg, String.valueOf(frameNum), new Point(30,90), 3, 3,
+                        new Scalar(0, 0, 0, 0), 5);
 
                 bitmap = Bitmap.createBitmap(rgbaImg.cols(),rgbaImg.rows(),Bitmap.Config. ARGB_8888); // Each pixel is stored on 4 bytes. Each channel (RGB and alpha for translucency) is stored with 8 bits of precision (256 possible values.) This configuration is very flexible and offers the best quality.
                 Utils.matToBitmap(rgbaImg,bitmap); // copy img with detection boxes in bitmap to be saved
                 saveImage(bitmap);
                 Log.i(TAG, "added frame = " +i+"  "+ j);
                 //Log.i(TAG, "added frame = " +(++i));
-            }
-            else {
+                faces.release();
+            } else {
                 Log.i(TAG, "END of SEQUENCE or NULL BITMAP!!");
                 break;
             }
+            rgbaImg.release();
             j++;
             //i+=33334;
             i+=1000000;
-
         }
         fos.close();
         mp.release();

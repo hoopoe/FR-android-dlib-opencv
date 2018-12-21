@@ -43,7 +43,6 @@ public class DetectionBasedTrackerTest {
     private String                  filename = "FDbT-SolvayRes.png";
     private File                    mCascadeFile;
     private String                  AppResPath = "/myAppRes/";
-    // String                  inFilename = null;
     private DetectionBasedTracker   nativeDetect;
     private CascadeClassifier       mJavaDetector;
 
@@ -59,36 +58,9 @@ public class DetectionBasedTrackerTest {
     @Test
     public void OCVDetectTrackTest() throws IOException {
 
-        /*
-        BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
-        System.out.print("Enter filename:  ");
-        stdin.readLine();
-        String inFilename = stdin.readLine();
-
-        stdin.close();
-
-        /*
-        System.out.println("Enter filename --> ");
-
-        Scanner scanner = new Scanner(System.in);
-        if(!scanner.hasNextLine()) {
-        //while(true) {
-            Log.i(TAG,scanner.nextLine());
-            inFilename = scanner.nextLine();
-            //System.out.println("Next Line! ");
-            Log.i(TAG,"Next Line! ");
-            //if (inFilename != null) break;
-        }
-        else Log.i(TAG,"scanner.nextLine " + scanner.nextLine());
-
-        //System.out.println("Input filename is 2 " + inFilename);
-        Log.i(TAG, "Input filename is 5 " + inFilename);
-
-        scanner.close();
-*/
-
         Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
         InputStream is = getResources().openRawResource(R.raw.haarcascade_frontalface_default);
+
 
         Context appContext =  InstrumentationRegistry.getInstrumentation().getTargetContext().getApplicationContext();
         File cascadeDir = appContext.getDir("cascade", Context.MODE_PRIVATE);
@@ -113,9 +85,9 @@ public class DetectionBasedTrackerTest {
         mJavaDetector = new CascadeClassifier(mCascadeFile.getAbsolutePath());
 
         // read input from Assets
-        //InputStream testInput = testContext.getAssets().open("11.png");
+        InputStream testInput = testContext.getAssets().open("11.png");
+        // InputStream testInput = testContext.getAssets().open("collage.jpg");
         // InputStream testInput = testContext.getAssets().open("SolvayConf.jpg");
-        InputStream testInput = testContext.getAssets().open(filename);
         Bitmap bitmap = BitmapFactory.decodeStream(testInput);
 
         Mat matImg = new Mat();

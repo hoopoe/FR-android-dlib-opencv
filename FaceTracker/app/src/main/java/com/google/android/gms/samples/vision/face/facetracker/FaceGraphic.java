@@ -45,6 +45,7 @@ class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface
 
     private static final float FACE_POSITION_RADIUS = 10.0f;
     private static final float ID_TEXT_SIZE = 50.0f;
+    private static final float ID_FRAME_SIZE = 50.0f;
     private static final float ID_Y_OFFSET = 50.0f;
     private static final float ID_X_OFFSET = -50.0f;
     private static final float BOX_STROKE_WIDTH = 5.0f;
@@ -56,7 +57,7 @@ class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface
             Color.MAGENTA,
             Color.RED,
             Color.WHITE,
-            Color.YELLOW
+            Color.YELLOW,
     };
     private static int mCurrentColorIndex = 0;
 
@@ -69,7 +70,6 @@ class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface
     private float mFaceHappiness;
 
 
-
     private Thread mT;
     private CustomDetector mCustomDetector;
     private volatile boolean IsRecognized;
@@ -77,6 +77,7 @@ class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface
 
     private int FRAMES_TO_SKIP = 15;
     public int frame_cx = FRAMES_TO_SKIP; //start after n frames
+
 
     FaceGraphic(GraphicOverlay overlay, CustomDetector customDetector) {
         super(overlay);
@@ -96,6 +97,7 @@ class FaceGraphic extends GraphicOverlay.Graphic implements RecognitionInterface
         mBoxPaint.setStyle(Paint.Style.STROKE);
         mBoxPaint.setStrokeWidth(BOX_STROKE_WIDTH);
     }
+
 
     void setId(int id) {
         mFaceId = id;

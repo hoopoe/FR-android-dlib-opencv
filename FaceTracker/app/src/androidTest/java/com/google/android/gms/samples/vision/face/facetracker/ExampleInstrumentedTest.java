@@ -33,29 +33,9 @@ import static junit.framework.Assert.assertEquals;
 public class ExampleInstrumentedTest {
 
     private static final        String TAG = "GMS-Test";
-    private Detector<Face>      mDetector;
     private String              filename = "GMS-SolvayRes.png";
     private String              AppResPath = "/myAppRes/";
 
-    /*
-    @Test
-    public void useAppContext() throws Exception {
-        Log.i(TAG, "In useAppContext ");
-        Context appContext = InstrumentationRegistry.getTargetContext();
-        assertEquals("com.google.android.gms.samples.vision.face.facetracker", appContext.getPackageName());
-    }
-
-    @Rule
-    public ActivityTestRule<FaceTrackerActivity> activityRule = new ActivityTestRule(FaceTrackerActivity.class);
-
-    @Test
-    public void callAddContext()  {
-        Log.i(TAG, "In callAddContext ");
-        FaceTrackerActivity activity  = activityRule.getActivity();
-//      int res = activity.nativeAdd(1,2);
-//      assertEquals(3, res);
-    }
-    */
 
     @Test
     public void gmsDetectionTest() throws IOException {
@@ -63,17 +43,17 @@ public class ExampleInstrumentedTest {
         Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
         Context appContext =  InstrumentationRegistry.getInstrumentation().getTargetContext().getApplicationContext();
 
-        //InputStream testInput = testContext.getAssets().open("11.png");
-        InputStream testInput = testContext.getAssets().open("SolvayConf.jpg");
+        InputStream testInput = testContext.getAssets().open("11.png");
+        //InputStream testInput = testContext.getAssets().open("SolvayConf.jpg");
         Bitmap bitmap = BitmapFactory.decodeStream(testInput);
         Log.d(TAG, bitmap.getWidth() + " " + bitmap.getHeight());
 
         FaceDetector mDetector = new FaceDetector.Builder(appContext) // using testContext didn't work
-                .setTrackingEnabled(true)
+                .setTrackingEnabled(false)
                 .setClassificationType(FaceDetector.NO_CLASSIFICATIONS)
                 .setProminentFaceOnly(false)
                 .setMode(FaceDetector.ACCURATE_MODE)
-                .setMinFaceSize(0.015f)
+                .setMinFaceSize(0.002f)
                 .build();
 
         SparseArray<Face> faces = null;
